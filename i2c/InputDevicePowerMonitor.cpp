@@ -19,9 +19,11 @@
 #include <cutils/log.h>
 #include <errno.h>
 
+#define LOG_TAG "InputDevicePowerMonitor"
+
 static const char* INPUT_DIR = "/sys/class/input";
 static const char* INPUT_FILE = "device/name";
-static const char* UEVENT_FILE = "uevent";
+static const char* DEVICE_CONTROL_FILE = "device/device/enable";
 
 void InputDevicePowerMonitor::scanPaths()
 {
@@ -69,7 +71,7 @@ void InputDevicePowerMonitor::scanPaths()
             }
         }
         if(devFound){
-            snprintf(eventName, PATH_MAX, "%s/%s/%s", INPUT_DIR, de->d_name, UEVENT_FILE);
+            snprintf(eventName, PATH_MAX, "%s/%s/%s", INPUT_DIR, de->d_name, DEVICE_CONTROL_FILE);
                      mUeventPaths.push_back(eventName);
         }
     }
@@ -83,12 +85,14 @@ void InputDevicePowerMonitor::scanPaths()
 void InputDevicePowerMonitor::setState(int state)
 {
     unsigned int quitLoop = 0;
+    ssize_t ret = 0;
     scanPaths();
     std::vector<std::string>::iterator it=mUeventPaths.begin();
     while(it != mUeventPaths.end())
     {
         int fd = ::open((char*) it->c_str(), O_WRONLY);
         if(fd < 0){
+            ALOGE("Could not open the file:%s", (char*) it->c_str());
             /*
                 We might have issue that the kernel removed the node so we need to re-scan.
                 However if we have permission problem we do not want to be stuck forever in this loop
@@ -102,10 +106,14 @@ void InputDevicePowerMonitor::setState(int state)
         }
 
         if(!state){
-            write(fd, "remove", 6);
+            ret = write(fd, "0", 1);
+            if (ret < 0)
+                ALOGE("Error when trying to write to the file errno:%d", errno);
         }
         else{
-            write(fd, "add", 3);
+            ret = write(fd, "1", 1);
+            if (ret < 0)
+                ALOGE("Error when trying to write to the file errno:%d", errno);
         }
         close(fd);
         it++;
