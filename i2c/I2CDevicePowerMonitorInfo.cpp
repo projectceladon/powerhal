@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 The Android Open Source Project
+ * Copyright (C) 2014 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,15 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef ANDROID_INPUT_DEVICE_POWER_MONITOR_INFO_H
-#define ANDROID_INPUT_DEVICE_POWER_MONITOR_INFO_H
+#include "I2CDevicePowerMonitorInfo.h"
 
-class InputDevicePowerMonitorInfo {
-private:
-    InputDevicePowerMonitorInfo() {};
-public:
-    virtual ~InputDevicePowerMonitorInfo(){};
-    static const unsigned int numDev = 1;
-    static const char* deviceList[numDev];
+const char* I2CDevicePowerMonitorInfo::deviceList[numDev] = {
+    "ATML1000:00", /* ATMEL touchscreen */
+    "MSFT0001:01"  /* Touchpad */
 };
-#endif //ANDROID_INPUT_DEVICE_POWER_MONITOR_INFO

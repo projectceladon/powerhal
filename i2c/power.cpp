@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 The Android Open Source Project
+ * Copyright (C) 2014 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,9 +25,9 @@
 #include <cutils/log.h>
 #include <hardware/hardware.h>
 #include <hardware/power.h>
-#include "InputDevicePowerMonitor.h"
+#include "I2CDevicePowerMonitor.h"
 
-static InputDevicePowerMonitor powerMonitor;
+static I2CDevicePowerMonitor powerMonitor;
 
 static void power_init(struct power_module *module)
 {
@@ -39,7 +39,7 @@ static void power_set_interactive(struct power_module *module, int on)
 }
 
 static void power_hint(struct power_module *module, power_hint_t hint,
-		       void *data) {
+                       void *data) {
     switch(hint) {
         default:
             break;

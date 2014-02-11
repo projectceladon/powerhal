@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 The Android Open Source Project
+ * Copyright (C) 2014 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-#include "InputDevicePowerMonitor.h"
+#define LOG_TAG "I2CDevicePowerMonitor"
+
+#include "I2CDevicePowerMonitor.h"
 
 #include <cutils/log.h>
 #include <errno.h>
 
-#define LOG_TAG "InputDevicePowerMonitor"
 
-static const char* INPUT_DIR = "/sys/class/input";
-static const char* INPUT_FILE = "device/name";
-static const char* DEVICE_CONTROL_FILE = "device/device/enable";
+static const char* I2C_BUS_DIR = "/sys/bus/i2c/devices";
+static const char* I2C_DEV_NAME = "name";
+static const char* DEVICE_CONTROL_FILE = "enable";
 
-void InputDevicePowerMonitor::scanPaths()
+void I2CDevicePowerMonitor::scanPaths()
 {
 
-    char eventName[PATH_MAX];
+    char deviceNamePath[PATH_MAX];
     DIR *dir;
     struct dirent *de;
     int cnt = 0;
@@ -36,59 +37,63 @@ void InputDevicePowerMonitor::scanPaths()
     if(!mScanNeeded)
         return;
 
-    mUeventPaths.erase(mUeventPaths.begin(), mUeventPaths.end());
-    dir = opendir(INPUT_DIR);
+    mDevicePaths.erase(mDevicePaths.begin(), mDevicePaths.end());
+    dir = opendir(I2C_BUS_DIR);
     if(dir == NULL){
-        ALOGE("%s: Could not open INPUT_DIR:%s", __func__, INPUT_DIR);
+        ALOGE("Could not open directory '%s': %s", I2C_BUS_DIR, strerror(errno));
         return;
     }
     while((de = readdir(dir))) {
-        if(!strstr(de->d_name,"event"))
+        if(de->d_name[0] == '.')
             continue;
-        snprintf(eventName, PATH_MAX, "%s/%s/%s", INPUT_DIR, de->d_name, INPUT_FILE);
-        int fd = ::open(eventName, O_RDONLY);
+
+        snprintf(deviceNamePath, sizeof(deviceNamePath), "%s/%s/%s", I2C_BUS_DIR, de->d_name, I2C_DEV_NAME);
+        int fd = ::open(deviceNamePath, O_RDONLY);
         if(fd < 0){
-            ALOGE("%s: Could not open the file:%s", __func__, eventName);
+            ALOGE("Could not open file '%s': %s", deviceNamePath, strerror(errno));
             continue;
         }
+
         char deviceName[DEVICE_NAME_MAX];
         ssize_t numBytes = read(fd, &deviceName, DEVICE_NAME_MAX);
         if(numBytes < 0){
-            ALOGE("%s: Error while reading the file:%s", __func__, eventName);
+            ALOGE("Error while reading file '%s': %s", deviceNamePath, strerror(errno));
             close(fd);
             continue;
         }
         close(fd);
         deviceName[numBytes]='\0';
+
         bool devFound = false;
         unsigned int i;
-        for(i = 0;  i < InputDevicePowerMonitorInfo::numDev; i++){
-            if(!strncmp(InputDevicePowerMonitorInfo::deviceList[i], deviceName,
-	       strlen(InputDevicePowerMonitorInfo::deviceList[i]))){
-                ALOGV("%s: Found the device:%s", __func__, deviceName);
+        for(i = 0;  i < I2CDevicePowerMonitorInfo::numDev; i++){
+            if(!strncmp(I2CDevicePowerMonitorInfo::deviceList[i], deviceName,
+	       strlen(I2CDevicePowerMonitorInfo::deviceList[i]))){
+                ALOGV("Found device: %s", deviceName);
                 devFound = true;
                 break;
             }
         }
+
         if(devFound){
-            snprintf(eventName, PATH_MAX, "%s/%s/%s", INPUT_DIR, de->d_name, DEVICE_CONTROL_FILE);
-                     mUeventPaths.push_back(eventName);
+            snprintf(deviceNamePath, sizeof(deviceNamePath), "%s/%s/%s", I2C_BUS_DIR, de->d_name, DEVICE_CONTROL_FILE);
+            mDevicePaths.push_back(deviceNamePath);
         }
     }
-    if(mUeventPaths.size() == InputDevicePowerMonitorInfo::numDev){
+    if(mDevicePaths.size() == I2CDevicePowerMonitorInfo::numDev){
         mScanNeeded = false;
     }
 
     closedir(dir);
 }
 
-void InputDevicePowerMonitor::setState(int state)
+void I2CDevicePowerMonitor::setState(int state)
 {
     unsigned int quitLoop = 0;
     ssize_t ret = 0;
     scanPaths();
-    std::vector<std::string>::iterator it=mUeventPaths.begin();
-    while(it != mUeventPaths.end())
+    std::vector<std::string>::iterator it=mDevicePaths.begin();
+    while(it != mDevicePaths.end())
     {
         int fd = ::open((char*) it->c_str(), O_WRONLY);
         if(fd < 0){
@@ -99,7 +104,7 @@ void InputDevicePowerMonitor::setState(int state)
             */
             mScanNeeded = true;
             scanPaths();
-            it = mUeventPaths.begin();
+            it = mDevicePaths.begin();
             if(quitLoop++ > 0)
                 break;
             continue;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 The Android Open Source Project
+ * Copyright (C) 2014 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "InputDevicePowerMonitorInfo.h"
+#ifndef ANDROID_I2C_DEVICE_POWER_MONITOR_INFO_H
+#define ANDROID_I2C_DEVICE_POWER_MONITOR_INFO_H
 
-const char* InputDevicePowerMonitorInfo::deviceList[numDev] = {
-    "ATML1000:00 03EB:2136" /* ATMEL Touchscreen */
+class I2CDevicePowerMonitorInfo {
+private:
+    I2CDevicePowerMonitorInfo() {};
+public:
+    virtual ~I2CDevicePowerMonitorInfo(){};
+    static const unsigned int numDev = 2;
+    static const char* deviceList[numDev];
 };
+#endif //ANDROID_I2C_DEVICE_POWER_MONITOR_INFO

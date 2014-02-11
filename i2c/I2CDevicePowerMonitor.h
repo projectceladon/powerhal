@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 The Android Open Source Project
+ * Copyright (C) 2014 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_INPUT_POWER_MONITOR_H
-#define ANDROID_INPUT_POWER_MONITOR_H
+#ifndef ANDROID_I2C_POWER_MONITOR_H
+#define ANDROID_I2C_POWER_MONITOR_H
 
 #include <string>
 
@@ -25,7 +25,7 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <vector>
-#include "InputDevicePowerMonitorInfo.h"
+#include "I2CDevicePowerMonitorInfo.h"
 
 #define DEVICE_NAME_MAX 256
 
@@ -35,19 +35,19 @@ struct sensors_event_t;
  * The class is used to remove/add input i2c devices through input sysfs system
  * so the devices would power down correctly
  */
-class InputDevicePowerMonitor {
+class I2CDevicePowerMonitor {
 
   private:
-      std::vector<std::string> mUeventPaths;
+      std::vector<std::string> mDevicePaths;
       bool mScanNeeded;
       void cleanPaths();
       void scanPaths();
 
   public:
-      InputDevicePowerMonitor():
+      I2CDevicePowerMonitor():
           mScanNeeded(true){};
-      virtual ~InputDevicePowerMonitor(){};
+      virtual ~I2CDevicePowerMonitor(){};
       void setState(int state);
-  };
-#endif  // ANDROID_INPUT_POWER_MONITOR_H
 
+};
+#endif  // ANDROID_I2C_POWER_MONITOR_H

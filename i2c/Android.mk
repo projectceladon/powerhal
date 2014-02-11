@@ -1,4 +1,4 @@
-# Copyright (C) 2013 The Android Open Source Project
+# Copyright (C) 2014 The Android Open Source Project
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH)
 
 LOCAL_MODULE := power.$(TARGET_PRODUCT)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
-LOCAL_SRC_FILES := InputDevicePowerMonitor.cpp \
+LOCAL_SRC_FILES := I2CDevicePowerMonitor.cpp \
                    power.cpp \
-                   InputDevicePowerMonitorInfo.cpp \
+                   I2CDevicePowerMonitorInfo.cpp \
 
 LOCAL_SHARED_LIBRARIES := liblog libcutils libstlport
 LOCAL_MODULE_TAGS := optional
