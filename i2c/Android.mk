@@ -19,13 +19,13 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 include external/stlport/libstlport.mk
-LOCAL_C_INCLUDES += $(LOCAL_PATH) $(LOCAL_PATH)/$(TARGET_PRODUCT)
+LOCAL_C_INCLUDES += $(LOCAL_PATH)
 
 LOCAL_MODULE := power.$(TARGET_PRODUCT)
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_SRC_FILES := InputDevicePowerMonitor.cpp \
                    power.cpp \
-                   $(TARGET_PRODUCT)/InputDevicePowerMonitorInfo.cpp \
+                   InputDevicePowerMonitorInfo.cpp \
 
 LOCAL_SHARED_LIBRARIES := liblog libcutils libstlport
 LOCAL_MODULE_TAGS := optional

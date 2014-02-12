@@ -16,5 +16,5 @@
 #include "InputDevicePowerMonitorInfo.h"
 
 const char* InputDevicePowerMonitorInfo::deviceList[numDev] = {
-    "ATML1000:00 03EB:2136"
+    "ATML1000:00 03EB:2136" /* ATMEL Touchscreen */
 };
