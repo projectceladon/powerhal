@@ -12,24 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ifeq ($(INTEL_POWER_HAL_I2C),true)
-
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
 include external/stlport/libstlport.mk
-LOCAL_C_INCLUDES += $(LOCAL_PATH)
+LOCAL_C_INCLUDES += $(LOCAL_PATH) \
+                    $(LOCAL_PATH)/i2c \
 
 LOCAL_MODULE := power.$(TARGET_PRODUCT)
-LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
-LOCAL_SRC_FILES := I2CDevicePowerMonitor.cpp \
-                   power.cpp \
-                   I2CDevicePowerMonitorInfo.cpp \
+LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/hw
+
+# main libpower source
+LOCAL_SRC_FILES := power.cpp
+
+# for i2c devices
+LOCAL_SRC_FILES += i2c/I2CDevicePowerMonitor.cpp \
+                   i2c/I2CDevicePowerMonitorInfo.cpp \
 
 LOCAL_SHARED_LIBRARIES := liblog libcutils libstlport
+
 LOCAL_MODULE_TAGS := optional
 
-include $(BUILD_SHARED_LIBRARY)
+LOCAL_MODULE_OWNER := intel
 
-endif
+include $(BUILD_SHARED_LIBRARY)
