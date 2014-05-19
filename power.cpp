@@ -31,6 +31,8 @@ static I2CDevicePowerMonitor powerMonitor;
 
 static void power_init(struct power_module *module)
 {
+    /* Enable all devices by default */
+    powerMonitor.setState(1);
 }
 
 static void power_set_interactive(struct power_module *module, int on)
