@@ -20,7 +20,7 @@ include external/stlport/libstlport.mk
 LOCAL_C_INCLUDES += $(LOCAL_PATH) \
                     $(LOCAL_PATH)/i2c \
 
-LOCAL_MODULE := power.$(TARGET_PRODUCT)
+LOCAL_MODULE := power.$(TARGET_BOARD_PLATFORM)
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/hw
 
 # main libpower source
