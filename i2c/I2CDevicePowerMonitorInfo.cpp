@@ -17,5 +17,6 @@
 
 const char* I2CDevicePowerMonitorInfo::deviceList[numDev] = {
     "ATML1000:00", /* ATMEL touchscreen */
+    "GODX0911:00", /* Goodix GT911 touchscreen */
     "MSFT0001:01"  /* Touchpad */
 };
