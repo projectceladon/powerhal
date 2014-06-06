@@ -14,21 +14,18 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "I2CDevicePowerMonitor"
+#define LOG_TAG "PowerHAL"
 
-#include "I2CDevicePowerMonitor.h"
+#include "DevicePowerMonitor.h"
 
 #include <cutils/log.h>
 #include <errno.h>
 
+static const char* HAL_DIR = "/sys/power/power_HAL_suspend";
+static const char* DEVICE_CONTROL_FILE = "power_HAL_suspend";
 
-static const char* I2C_BUS_DIR = "/sys/bus/i2c/devices";
-static const char* I2C_DEV_NAME = "name";
-static const char* DEVICE_CONTROL_FILE = "enable";
-
-void I2CDevicePowerMonitor::scanPaths()
+void DevicePowerMonitor::scanPaths()
 {
-
     char deviceNamePath[PATH_MAX];
     DIR *dir;
     struct dirent *de;
@@ -38,56 +35,47 @@ void I2CDevicePowerMonitor::scanPaths()
         return;
 
     mDevicePaths.erase(mDevicePaths.begin(), mDevicePaths.end());
-    dir = opendir(I2C_BUS_DIR);
+    dir = opendir(HAL_DIR);
     if(dir == NULL){
-        ALOGE("Could not open directory '%s': %s", I2C_BUS_DIR, strerror(errno));
+        ALOGE("Could not open directory '%s': %s", HAL_DIR, strerror(errno));
         return;
     }
     while((de = readdir(dir))) {
         if(de->d_name[0] == '.')
             continue;
 
-        snprintf(deviceNamePath, sizeof(deviceNamePath), "%s/%s/%s", I2C_BUS_DIR, de->d_name, I2C_DEV_NAME);
-        int fd = ::open(deviceNamePath, O_RDONLY);
+        snprintf(deviceNamePath, sizeof(deviceNamePath), "%s/%s/%s", HAL_DIR, de->d_name, DEVICE_CONTROL_FILE);
+        int fd = ::open(deviceNamePath, O_WRONLY);
         if(fd < 0){
             ALOGE("Could not open file '%s': %s", deviceNamePath, strerror(errno));
             continue;
         }
-
-        char deviceName[DEVICE_NAME_MAX];
-        ssize_t numBytes = read(fd, &deviceName, DEVICE_NAME_MAX);
-        if(numBytes < 0){
-            ALOGE("Error while reading file '%s': %s", deviceNamePath, strerror(errno));
-            close(fd);
-            continue;
-        }
         close(fd);
-        deviceName[numBytes]='\0';
 
         bool devFound = false;
         unsigned int i;
-        for(i = 0;  i < I2CDevicePowerMonitorInfo::numDev; i++){
-            if(!strncmp(I2CDevicePowerMonitorInfo::deviceList[i], deviceName,
-	       strlen(I2CDevicePowerMonitorInfo::deviceList[i]))){
-                ALOGV("Found device: %s", deviceName);
+        for(i = 0;  i < DevicePowerMonitorInfo::numDev; i++){
+            if(!strncmp(DevicePowerMonitorInfo::deviceList[i], de->d_name,
+	       strlen(DevicePowerMonitorInfo::deviceList[i]))){
+                ALOGD("Found device: %s", de->d_name);
                 devFound = true;
                 break;
             }
         }
 
         if(devFound){
-            snprintf(deviceNamePath, sizeof(deviceNamePath), "%s/%s/%s", I2C_BUS_DIR, de->d_name, DEVICE_CONTROL_FILE);
+            snprintf(deviceNamePath, sizeof(deviceNamePath), "%s/%s/%s", HAL_DIR, de->d_name, DEVICE_CONTROL_FILE);
             mDevicePaths.push_back(deviceNamePath);
         }
     }
-    if(mDevicePaths.size() == I2CDevicePowerMonitorInfo::numDev){
+    if(mDevicePaths.size() == DevicePowerMonitorInfo::numDev){
         mScanNeeded = false;
     }
 
     closedir(dir);
 }
 
-void I2CDevicePowerMonitor::setState(int state)
+void DevicePowerMonitor::setState(int state)
 {
     unsigned int quitLoop = 0;
     ssize_t ret = 0;
@@ -110,16 +98,14 @@ void I2CDevicePowerMonitor::setState(int state)
             continue;
         }
 
-        if(!state){
+        if(state){
             ret = write(fd, "0", 1);
-            if (ret < 0)
-                ALOGE("Error when trying to write to the file errno:%d", errno);
         }
         else{
             ret = write(fd, "1", 1);
-            if (ret < 0)
-                ALOGE("Error when trying to write to the file errno:%d", errno);
         }
+        if (ret < 0)
+            ALOGE("Error when trying to write to the file errno:%d", errno);
         close(fd);
         it++;
 

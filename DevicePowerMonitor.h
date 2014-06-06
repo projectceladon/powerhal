@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef ANDROID_I2C_POWER_MONITOR_H
-#define ANDROID_I2C_POWER_MONITOR_H
+#ifndef ANDROID_POWER_MONITOR_H
+#define ANDROID_POWER_MONITOR_H
 
 #include <string>
 
@@ -25,7 +25,8 @@
 #include <fcntl.h>
 #include <stdint.h>
 #include <vector>
-#include "I2CDevicePowerMonitorInfo.h"
+
+#include "DevicePowerMonitorInfo.h"
 
 #define DEVICE_NAME_MAX 256
 
@@ -35,7 +36,7 @@ struct sensors_event_t;
  * The class is used to remove/add input i2c devices through input sysfs system
  * so the devices would power down correctly
  */
-class I2CDevicePowerMonitor {
+class DevicePowerMonitor {
 
   private:
       std::vector<std::string> mDevicePaths;
@@ -44,9 +45,9 @@ class I2CDevicePowerMonitor {
       void scanPaths();
 
   public:
-      I2CDevicePowerMonitor():
+      DevicePowerMonitor():
           mScanNeeded(true){};
-      virtual ~I2CDevicePowerMonitor(){};
+      virtual ~DevicePowerMonitor(){};
       void setState(int state);
 
 };

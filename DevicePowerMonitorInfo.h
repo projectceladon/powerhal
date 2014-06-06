@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef ANDROID_I2C_DEVICE_POWER_MONITOR_INFO_H
-#define ANDROID_I2C_DEVICE_POWER_MONITOR_INFO_H
 
-class I2CDevicePowerMonitorInfo {
+#ifndef ANDROID_DEVICE_POWER_MONITOR_INFO_H
+#define ANDROID_DEVICE_POWER_MONITOR_INFO_H
+
+class DevicePowerMonitorInfo {
 private:
-    I2CDevicePowerMonitorInfo() {};
+    DevicePowerMonitorInfo() {};
 public:
-    virtual ~I2CDevicePowerMonitorInfo(){};
+    virtual ~DevicePowerMonitorInfo(){};
     static const unsigned int numDev = 3;
     static const char* deviceList[numDev];
 };

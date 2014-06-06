@@ -1,4 +1,0 @@
-I2C devices, that shall be powered down when non-interactive, are defined according to
-I2CDevicePowerMonitorInfo.h. Name the source file to I2CDevicePowerMonitorInfo.cpp and
-put it in vendor/intel/hardware/libpower/i2c/$(TARGET_PRODUCT) directory.
-E.g Harris Beach implementation of i2c devices definition is located in vendor/intel/hardware/libpower/i2c/hsb

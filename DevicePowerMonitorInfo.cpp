@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "I2CDevicePowerMonitorInfo.h"
 
-const char* I2CDevicePowerMonitorInfo::deviceList[numDev] = {
-    "ATML1000:00", /* ATMEL touchscreen */
-    "GODX0911:00", /* Goodix GT911 touchscreen */
-    "MSFT0001:01"  /* Touchpad */
+#include "DevicePowerMonitorInfo.h"
+
+const char* DevicePowerMonitorInfo::deviceList[numDev] = {
+    "i2c-ATML1000:00", /* ATMEL touchscreen */
+    "i2c-GODX0911:00", /* Goodix GT911 touchscreen */
+    "i2c-MSFT0001:01"  /* Touchpad */
 };

@@ -25,9 +25,9 @@
 #include <cutils/log.h>
 #include <hardware/hardware.h>
 #include <hardware/power.h>
-#include "I2CDevicePowerMonitor.h"
+#include "DevicePowerMonitor.h"
 
-static I2CDevicePowerMonitor powerMonitor;
+static DevicePowerMonitor powerMonitor;
 
 static void power_init(struct power_module *module)
 {
