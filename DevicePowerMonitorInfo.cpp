@@ -19,5 +19,7 @@
 const char* DevicePowerMonitorInfo::deviceList[numDev] = {
     "i2c-ATML1000:00", /* ATMEL touchscreen */
     "i2c-GODX0911:00", /* Goodix GT911 touchscreen */
+    "i2c-FT05506:00",  /* Focaltech ft5x0x touchscreen */
+    "i2c-FTTH5506:00", /* Focaltech ft5x0x touchscreen */
     "i2c-MSFT0001:01"  /* Touchpad */
 };
