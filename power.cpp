@@ -17,6 +17,10 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+
+#include "include/hint.h"
 #include <fcntl.h>
 
 #define LOG_TAG "PowerHAL"
@@ -24,27 +28,74 @@
 
 #include <cutils/log.h>
 #include <hardware/hardware.h>
-#include <hardware/power.h>
 #include "DevicePowerMonitor.h"
+
+#define SOCK_DEV "/dev/socket/power_hal"
+
+static int sockfd;
+static struct sockaddr_un client_addr;
 
 static DevicePowerMonitor powerMonitor;
 
-static void power_init(struct power_module *module)
+static int socket_init()
+{
+    if (sockfd < 0) {
+        sockfd = socket(PF_UNIX, SOCK_DGRAM, 0);
+        if (sockfd < 0) {
+            ALOGE("%s: failed to open: %s", __func__, strerror(errno));
+            return 1;
+        }
+        memset(&client_addr, 0, sizeof(struct sockaddr_un));
+        client_addr.sun_family = AF_UNIX;
+        snprintf(client_addr.sun_path, UNIX_PATH_MAX, SOCK_DEV);
+    }
+    return 0;
+}
+
+static void power_init(__attribute__((unused))struct power_module *module)
 {
     /* Enable all devices by default */
     powerMonitor.setState(1);
+    sockfd = -1;
+    socket_init();
 }
 
-static void power_set_interactive(struct power_module *module, int on)
+static void power_set_interactive(__attribute__((unused))struct power_module *module, int on)
 {
     powerMonitor.setState(on);
 }
 
-static void power_hint(struct power_module *module, power_hint_t hint,
+static void power_hint_worker(power_hint_t hint, void *hint_data)
+{
+    int rc;
+    power_hint_data_t data;
+    if (socket_init()) {
+        ALOGE("socket init failed");
+        return;
+    }
+
+    data.hint = hint;
+
+    if (NULL == hint_data) {
+        data.data = 0;
+    } else {
+        data.data = 1;
+    }
+
+    rc = sendto(sockfd, &data, sizeof(data), 0, (const struct sockaddr *)&client_addr, sizeof(struct sockaddr_un));
+    if (rc < 0) {
+        ALOGE("%s: failed to send: %s", __func__, strerror(errno));
+        return;
+    }
+}
+
+static void power_hint(__attribute__((unused))struct power_module *module, power_hint_t hint,
                        void *data) {
     switch(hint) {
-        default:
-            break;
+    case POWER_HINT_LOW_POWER:
+        power_hint_worker(POWER_HINT_LOW_POWER, data);
+    default:
+        break;
     }
 }
 
@@ -61,6 +112,8 @@ struct power_module HAL_MODULE_INFO_SYM = {
         .name = "Intel PC Compatible Power HAL",
         .author = "Intel Open Source Technology Center",
         .methods = &power_module_methods,
+        .dso = NULL,
+        .reserved = {},
     },
 
     .init = power_init,
