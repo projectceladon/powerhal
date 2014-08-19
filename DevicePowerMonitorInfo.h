@@ -22,7 +22,7 @@ private:
     DevicePowerMonitorInfo() {};
 public:
     virtual ~DevicePowerMonitorInfo(){};
-    static const unsigned int numDev = 3;
+    static const unsigned int numDev = 5;
     static const char* deviceList[numDev];
 };
 #endif //ANDROID_I2C_DEVICE_POWER_MONITOR_INFO

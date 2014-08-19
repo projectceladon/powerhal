@@ -68,7 +68,7 @@ void DevicePowerMonitor::scanPaths()
             mDevicePaths.push_back(deviceNamePath);
         }
     }
-    if(mDevicePaths.size() == DevicePowerMonitorInfo::numDev){
+    if(mDevicePaths.size() > 0){
         mScanNeeded = false;
     }
 
