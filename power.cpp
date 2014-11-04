@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (C) 2014 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,13 +28,17 @@
 
 #include <cutils/log.h>
 #include <hardware/hardware.h>
+#include "CGroupCpusetController.h"
 #include "DevicePowerMonitor.h"
 
 #define SOCK_DEV "/dev/socket/power_hal"
 
+#define ENABLE 1
+
 static int sockfd;
 static struct sockaddr_un client_addr;
 
+static CGroupCpusetController cgroupCpusetController;
 static DevicePowerMonitor powerMonitor;
 
 static int socket_init()
@@ -55,7 +59,8 @@ static int socket_init()
 static void power_init(__attribute__((unused))struct power_module *module)
 {
     /* Enable all devices by default */
-    powerMonitor.setState(1);
+    powerMonitor.setState(ENABLE);
+    cgroupCpusetController.setState(ENABLE);
     sockfd = -1;
     socket_init();
 }
@@ -63,6 +68,7 @@ static void power_init(__attribute__((unused))struct power_module *module)
 static void power_set_interactive(__attribute__((unused))struct power_module *module, int on)
 {
     powerMonitor.setState(on);
+    cgroupCpusetController.setState(on);
 }
 
 static void power_hint_worker(power_hint_t hint, void *hint_data)
