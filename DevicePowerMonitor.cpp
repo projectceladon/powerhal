@@ -52,18 +52,18 @@ void DevicePowerMonitor::scanPaths()
         }
         close(fd);
 
-        bool devFound = false;
+        bool blacklist = false;
         unsigned int i;
         for(i = 0;  i < DevicePowerMonitorInfo::numDev; i++){
-            if(!strncmp(DevicePowerMonitorInfo::deviceList[i], de->d_name,
-	       strlen(DevicePowerMonitorInfo::deviceList[i]))){
-                ALOGD("Found device: %s", de->d_name);
-                devFound = true;
+            if(!strncmp(DevicePowerMonitorInfo::deviceBlackList[i], de->d_name,
+	       strlen(DevicePowerMonitorInfo::deviceBlackList[i]))){
+                ALOGD("Found device: %s in blacklist", de->d_name);
+                blacklist = true;
                 break;
             }
         }
 
-        if(devFound){
+        if(!blacklist){
             snprintf(deviceNamePath, sizeof(deviceNamePath), "%s/%s/%s", HAL_DIR, de->d_name, DEVICE_CONTROL_FILE);
             mDevicePaths.push_back(deviceNamePath);
         }

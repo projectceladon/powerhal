@@ -17,20 +17,27 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 include external/stlport/libstlport.mk
-LOCAL_C_INCLUDES += $(LOCAL_PATH)
+LOCAL_C_INCLUDES += $(LOCAL_PATH) \
+                    external/thermal_daemon/src \
+                    external/libxml2/include \
+                    external/icu/icu4c/source/common \
+                    system/core/include/ \
+                    hardware/include \
+                    system/native/include
 
 LOCAL_MODULE := power.$(TARGET_BOARD_PLATFORM)
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/hw
 
 # main libpower source
-LOCAL_SRC_FILES := power.cpp
+LOCAL_SRC_FILES := power.cpp \
+                   thd_binder_client.cpp
 
 # for all devices under /sys/power/power_HAL_suspend
 LOCAL_SRC_FILES += DevicePowerMonitor.cpp \
                    DevicePowerMonitorInfo.cpp \
                    CGroupCpusetController.cpp
 
-LOCAL_SHARED_LIBRARIES := liblog libcutils libstlport
+LOCAL_SHARED_LIBRARIES := liblog libcutils libstlport libutils libdl libicuuc libicui18n libbinder
 
 LOCAL_MODULE_TAGS := optional
 

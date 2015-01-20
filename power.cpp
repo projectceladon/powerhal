@@ -20,49 +20,62 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "include/hint.h"
+
+#include <hardware/power.h>
 #include <fcntl.h>
 
 #define LOG_TAG "PowerHAL"
 #include <utils/Log.h>
 
 #include <cutils/log.h>
+#include <cutils/properties.h>
 #include <hardware/hardware.h>
 #include "CGroupCpusetController.h"
 #include "DevicePowerMonitor.h"
-
-#define SOCK_DEV "/dev/socket/power_hal"
+#include <thd_binder_client.h>
 
 #define ENABLE 1
 
-static int sockfd;
-static struct sockaddr_un client_addr;
+using namespace powerhal_api;
 
 static CGroupCpusetController cgroupCpusetController;
 static DevicePowerMonitor powerMonitor;
+static android::sp<IThermalAPI> shw;
+static bool serviceRegistered = false;
 
-static int socket_init()
-{
-    if (sockfd < 0) {
-        sockfd = socket(PF_UNIX, SOCK_DGRAM, 0);
-        if (sockfd < 0) {
-            ALOGE("%s: failed to open: %s", __func__, strerror(errno));
-            return 1;
-        }
-        memset(&client_addr, 0, sizeof(struct sockaddr_un));
-        client_addr.sun_family = AF_UNIX;
-        snprintf(client_addr.sun_path, UNIX_PATH_MAX, SOCK_DEV);
-    }
-    return 0;
+static bool itux_enabled() {
+    char value[PROPERTY_VALUE_MAX];
+    int length = property_get("persist.thermal.mode", value, "thermald");
+    std::string mode(value);
+
+    if (mode == "itux" || mode == "ituxd")
+        return true;
+    return false;
 }
 
 static void power_init(__attribute__((unused))struct power_module *module)
 {
+    sp<IServiceManager> sm = defaultServiceManager();
+    sp<IBinder> binder;
+    int cnt = 0;
+
     /* Enable all devices by default */
     powerMonitor.setState(ENABLE);
     cgroupCpusetController.setState(ENABLE);
-    sockfd = -1;
-    socket_init();
+
+    do {
+        binder = sm->getService(android::String16(SERVICE_NAME));
+        if (binder != 0)
+            break;
+        ALOGE("OGI thd_binder_service not published, waiting...");
+        usleep(500000); // 0.5 s
+        if (cnt++ > 10) //do not wait forever
+            return;
+    } while (true);
+    if (itux_enabled()) //we do not need the connection
+        return;
+    serviceRegistered = true;
+    shw = android::interface_cast<IThermalAPI>(binder);
 }
 
 static void power_set_interactive(__attribute__((unused))struct power_module *module, int on)
@@ -71,35 +84,28 @@ static void power_set_interactive(__attribute__((unused))struct power_module *mo
     cgroupCpusetController.setState(on);
 }
 
-static void power_hint_worker(power_hint_t hint, void *hint_data)
+static void power_hint_worker(void *hint_data)
 {
     int rc;
-    power_hint_data_t data;
-    if (socket_init()) {
-        ALOGE("socket init failed");
+    struct PowerSaveMessage data = { 1 , 50 };
+    status_t status;
+
+    if (!serviceRegistered)
         return;
-    }
 
-    data.hint = hint;
+    if (NULL == hint_data)
+        data.on = 0;
 
-    if (NULL == hint_data) {
-        data.data = 0;
-    } else {
-        data.data = 1;
-    }
+    shw->sendPowerSaveMsg(&data);
 
-    rc = sendto(sockfd, &data, sizeof(data), 0, (const struct sockaddr *)&client_addr, sizeof(struct sockaddr_un));
-    if (rc < 0) {
-        ALOGE("%s: failed to send: %s", __func__, strerror(errno));
-        return;
-    }
 }
 
 static void power_hint(__attribute__((unused))struct power_module *module, power_hint_t hint,
-                       void *data) {
+                       void *data)
+{
     switch(hint) {
     case POWER_HINT_LOW_POWER:
-        power_hint_worker(POWER_HINT_LOW_POWER, data);
+        power_hint_worker(data);
     default:
         break;
     }
