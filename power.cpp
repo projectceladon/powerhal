@@ -35,13 +35,70 @@
 #include <thd_binder_client.h>
 
 #define ENABLE 1
+#define TOUCHBOOST_PULSE_SYSFS    "/sys/devices/system/cpu/cpufreq/interactive/touchboostpulse"
 
+/*
+ * This parameter is to identify continuous touch/scroll events.
+ * Any two touch hints received between a 20 interval ms is
+ * considered as a scroll event.
+ */
+#define SHORT_TOUCH_TIME 20
+
+/*
+ * This parameter is to identify first touch events.
+ * Any two touch hints received after 100 ms is considered as
+ * a first touch event.
+ */
+#define LONG_TOUCH_TIME 100
+
+/*
+ * This parameter defines the number of vsync boost to be
+ * done after the finger release event.
+ */
+#define VSYNC_BOOST_COUNT 4
+
+/*
+ * This parameter defines the time between a touch and a vsync
+ * hint. the time if is > 30 ms, we do a vsync boost.
+ */
+#define VSYNC_TOUCH_TIME 30
 using namespace powerhal_api;
 
 static CGroupCpusetController cgroupCpusetController;
 static DevicePowerMonitor powerMonitor;
 static android::sp<IThermalAPI> shw;
 static bool serviceRegistered = false;
+static bool interactiveActive = false;
+
+struct intel_power_module{
+    struct power_module container;
+    int touchboost_disable;
+    int timer_set;
+    int vsync_boost;
+};
+
+static int sysfs_write(char *path, char *s)
+{
+    char buf[80];
+    int len;
+    int fd = open(path, O_WRONLY);
+
+    if (fd < 0) {
+        strerror_r(errno, buf, sizeof(buf));
+        ALOGE("Error opening %s: %s\n", path, buf);
+        return -1;
+    }
+
+    len = write(fd, s, strlen(s));
+    if (len < 0) {
+        strerror_r(errno, buf, sizeof(buf));
+        ALOGE("Error writing to %s: %s\n", path, buf);
+        return -1;
+    }
+
+    close(fd);
+    return 0;
+}
 
 static bool itux_enabled() {
     char value[PROPERTY_VALUE_MAX];
@@ -63,11 +120,14 @@ static void power_init(__attribute__((unused))struct power_module *module)
     powerMonitor.setState(ENABLE);
     cgroupCpusetController.setState(ENABLE);
 
+    if (!sysfs_write(TOUCHBOOST_PULSE_SYSFS, "1"))
+        interactiveActive = true;
+
     do {
         binder = sm->getService(android::String16(SERVICE_NAME));
         if (binder != 0)
             break;
-        ALOGE("OGI thd_binder_service not published, waiting...");
+        ALOGE("thd_binder_service not published, waiting...");
         usleep(500000); // 0.5 s
         if (cnt++ > 10) //do not wait forever
             return;
@@ -100,12 +160,75 @@ static void power_hint_worker(void *hint_data)
 
 }
 
-static void power_hint(__attribute__((unused))struct power_module *module, power_hint_t hint,
+static void power_hint(struct power_module *module, power_hint_t hint,
                        void *data)
 {
+    struct intel_power_module *intel = (struct intel_power_module *) module;
+    static struct timespec curr_time, prev_time = {0,0}, vsync_time;
+    double diff;
+    static int vsync_count;
+    static int consecutive_touch_int;
+
     switch(hint) {
+    case POWER_HINT_INTERACTION:
+        if (!interactiveActive)
+            return;
+        clock_gettime(CLOCK_MONOTONIC, &curr_time);
+        diff = (curr_time.tv_sec - prev_time.tv_sec) * 1000 +
+               (double)(curr_time.tv_nsec - prev_time.tv_nsec) / 1e6;
+        prev_time = curr_time;
+        if (diff < SHORT_TOUCH_TIME) {
+            consecutive_touch_int++;
+        }
+        else if (diff > LONG_TOUCH_TIME) {
+            intel->vsync_boost = 0;
+            intel->timer_set = 0;
+            intel->touchboost_disable = 0;
+            vsync_count = 0;
+            consecutive_touch_int = 0;
+        }
+        /* Simple touch: timer rate need not be changed here */
+        if ((diff < SHORT_TOUCH_TIME) && (intel->touchboost_disable == 0)
+                        && (consecutive_touch_int > 4))
+            intel->touchboost_disable = 1;
+        /*
+         * Scrolling: timer rate reduced to increase sensitivity. No more touch
+         * boost after this
+         */
+        if ((intel->touchboost_disable == 1) && (consecutive_touch_int > 15)
+                        && (intel->timer_set == 0)) {
+           intel->timer_set = 1;
+        }
+        if (!intel->touchboost_disable) {
+            sysfs_write(TOUCHBOOST_PULSE_SYSFS, "1");
+        }
+        break;
+    case POWER_HINT_VSYNC:
+        if (!interactiveActive)
+            return;
+        if (intel->touchboost_disable == 1) {
+            clock_gettime(CLOCK_MONOTONIC, &vsync_time);
+            diff = (vsync_time.tv_sec - curr_time.tv_sec) * 1000 +
+            (double)(vsync_time.tv_nsec - curr_time.tv_nsec) / 1e6;
+            if (diff > VSYNC_TOUCH_TIME) {
+                intel->timer_set = 0;
+                intel->vsync_boost = 1;
+                intel->touchboost_disable = 0;
+                vsync_count = VSYNC_BOOST_COUNT;
+            }
+        }
+        if (intel->vsync_boost) {
+            if (((unsigned long)data != 0) && (vsync_count > 0)) {
+                sysfs_write(TOUCHBOOST_PULSE_SYSFS,"1");
+                vsync_count-- ;
+            if (vsync_count == 0)
+               intel->vsync_boost = 0;
+            }
+        }
+        break;
     case POWER_HINT_LOW_POWER:
         power_hint_worker(data);
+        break;
     default:
         break;
     }
@@ -115,20 +238,24 @@ static struct hw_module_methods_t power_module_methods = {
     .open = NULL,
 };
 
-struct power_module HAL_MODULE_INFO_SYM = {
-    .common = {
-        .tag = HARDWARE_MODULE_TAG,
-        .module_api_version = POWER_MODULE_API_VERSION_0_2,
-        .hal_api_version = HARDWARE_HAL_API_VERSION,
-        .id = POWER_HARDWARE_MODULE_ID,
-        .name = "Intel PC Compatible Power HAL",
-        .author = "Intel Open Source Technology Center",
-        .methods = &power_module_methods,
-        .dso = NULL,
-        .reserved = {},
-    },
-
+struct intel_power_module HAL_MODULE_INFO_SYM = {
+    container:{
+        .common = {
+            .tag = HARDWARE_MODULE_TAG,
+            .module_api_version = POWER_MODULE_API_VERSION_0_2,
+            .hal_api_version = HARDWARE_HAL_API_VERSION,
+            .id = POWER_HARDWARE_MODULE_ID,
+            .name = "Intel PC Compatible Power HAL",
+            .author = "Intel Open Source Technology Center",
+            .methods = &power_module_methods,
+            .dso = NULL,
+            .reserved = {},
+        },
     .init = power_init,
     .setInteractive = power_set_interactive,
     .powerHint = power_hint,
+    },
+    touchboost_disable: 0,
+    timer_set: 0,
+    vsync_boost: 0,
 };
