@@ -26,7 +26,7 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH) \
                     system/native/include
 
 LOCAL_MODULE := power.$(TARGET_BOARD_PLATFORM)
-LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_SHARED_LIBRARIES)/hw
+LOCAL_MODULE_RELATIVE_PATH := hw
 
 # main libpower source
 LOCAL_SRC_FILES := power.cpp \
