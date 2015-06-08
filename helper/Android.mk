@@ -24,7 +24,7 @@ LOCAL_SRC_FILES := power_hal_helper.c
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_EXECUTABLES)
 
-LOCAL_SHARED_LIBRARIES := liblog libcutils libstlport
+LOCAL_SHARED_LIBRARIES := liblog libcutils
 
 LOCAL_MODULE_TAGS := optional
 

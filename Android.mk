@@ -16,7 +16,7 @@ LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
-include external/stlport/libstlport.mk
+#include external/stlport/libstlport.mk
 LOCAL_C_INCLUDES += $(LOCAL_PATH) \
                     external/thermal_daemon/src \
                     external/libxml2/include \
@@ -37,7 +37,7 @@ LOCAL_SRC_FILES += DevicePowerMonitor.cpp \
                    DevicePowerMonitorInfo.cpp \
                    CGroupCpusetController.cpp
 
-LOCAL_SHARED_LIBRARIES := liblog libcutils libstlport libutils libdl libicuuc libicui18n libbinder
+LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libdl libicuuc libicui18n libbinder
 
 LOCAL_MODULE_TAGS := optional
 
