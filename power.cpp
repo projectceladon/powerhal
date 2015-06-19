@@ -123,6 +123,9 @@ static void power_init(__attribute__((unused))struct power_module *module)
     if (!sysfs_write(TOUCHBOOST_PULSE_SYSFS, "1"))
         interactiveActive = true;
 
+    if (itux_enabled()) //we do not need the connection
+        return;
+
     do {
         binder = sm->getService(android::String16(SERVICE_NAME));
         if (binder != 0)
@@ -132,8 +135,7 @@ static void power_init(__attribute__((unused))struct power_module *module)
         if (cnt++ > 10) //do not wait forever
             return;
     } while (true);
-    if (itux_enabled()) //we do not need the connection
-        return;
+
     serviceRegistered = true;
     shw = android::interface_cast<IThermalAPI>(binder);
 }
