@@ -29,8 +29,8 @@
 #include <cutils/properties.h>
 #include <errno.h>
 
-static const char* CPUSET_ROOT_CPUS = "/sys/fs/cgroup/cpuset/cpuset.cpus";
-static const char* CPUSET_NON_INTERACTIVE_CPUS = "/sys/fs/cgroup/cpuset/power_hal/non_interactive/cpuset.cpus";
+static const char* CPUSET_ROOT_CPUS = "/sys/fs/cgroup/cpuset/cpus";
+static const char* CPUSET_NON_INTERACTIVE_CPUS = "/sys/fs/cgroup/cpuset/power_hal/non_interactive/cpus";
 
 CGroupCpusetController::CGroupCpusetController()
 {
