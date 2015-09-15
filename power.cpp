@@ -36,6 +36,7 @@
 
 #define ENABLE 1
 #define TOUCHBOOST_PULSE_SYSFS    "/sys/devices/system/cpu/cpufreq/interactive/touchboostpulse"
+#define CPUFREQ_BOOST	"/sys/devices/system/cpu/cpufreq/interactive/boost"
 
 /*
  * This parameter is to identify continuous touch/scroll events.
@@ -99,6 +100,21 @@ static int sysfs_write(char *path, char *s)
     close(fd);
     return 0;
 }
+
+#if APP_LAUNCH_BOOST
+static void app_launch_boost(void *hint_data)
+{
+	int rc;
+	if ((long)hint_data == 1) {
+		ALOGE("PowerHAL HAL:App Boost ON");
+		sysfs_write(CPUFREQ_BOOST,"1");
+	} else {
+		ALOGE("PowerHAL HAL:App Boost OFF");
+		sysfs_write(CPUFREQ_BOOST,"0");
+	}
+
+}
+#endif
 
 static bool itux_enabled() {
     char value[PROPERTY_VALUE_MAX];
@@ -231,6 +247,11 @@ static void power_hint(struct power_module *module, power_hint_t hint,
     case POWER_HINT_LOW_POWER:
         power_hint_worker(data);
         break;
+
+#if APP_LAUNCH_BOOST
+    case POWER_HINT_APP_LAUNCH:
+		app_launch_boost(data);
+#endif
     default:
         break;
     }

@@ -41,6 +41,11 @@ LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libdl libicuuc libicui18n li
 
 LOCAL_MODULE_TAGS := optional
 
+
+ifeq ($(APP_LAUNCH_BOOST), true)
+   LOCAL_CFLAGS += -DAPP_LAUNCH_BOOST
+endif
+
 LOCAL_MODULE_OWNER := intel
 
 include $(BUILD_SHARED_LIBRARY)
