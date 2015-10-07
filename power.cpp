@@ -20,6 +20,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
+#include <pthread.h>
 
 #include <hardware/power.h>
 #include <fcntl.h>
@@ -63,6 +64,15 @@
  * hint. the time if is > 30 ms, we do a vsync boost.
  */
 #define VSYNC_TOUCH_TIME 30
+
+#if APP_LAUNCH_BOOST
+#define SAFETY_TIMER_THRESHOLD 5000
+static pthread_mutex_t mutex;
+static pthread_cond_t thread_cond;
+static pthread_t thread_id;
+static int app_launch_boosted=0;
+#endif
+
 using namespace powerhal_api;
 
 static CGroupCpusetController cgroupCpusetController;
@@ -102,18 +112,75 @@ static int sysfs_write(char *path, char *s)
 }
 
 #if APP_LAUNCH_BOOST
+
+static void * g_start_timer(void *)
+{
+	struct timeval currentTime;
+	struct timespec ts;
+	int ret;
+
+	gettimeofday(&currentTime, NULL);
+	ts.tv_nsec = (currentTime.tv_usec * 1000) + (SAFETY_TIMER_THRESHOLD % 1000) * 1000000;
+	ts.tv_sec = currentTime.tv_sec + (SAFETY_TIMER_THRESHOLD / 1000) + (ts.tv_nsec / 1000000000);
+	ts.tv_nsec %= 1000000000;
+
+	pthread_mutex_lock(&mutex);
+	ret = pthread_cond_timedwait(&thread_cond, &mutex, &ts);
+	if (ret == 0) {
+		ALOGI("APP LAUNCH boot reverted normally!");
+	} else {
+		ALOGI("APP LAUNCH SAFETY TIMER TRIGGERED!");
+		sysfs_write(CPUFREQ_BOOST,"0");
+
+	}
+	pthread_mutex_unlock(&mutex);
+
+	app_launch_boosted=0;
+	pthread_exit(NULL);
+}
+void start_timer()
+{
+	int rc = 0;
+	int prevType;
+
+	rc = pthread_create(&thread_id, NULL, g_start_timer,NULL);
+	if(rc) {
+		ALOGE("pthread_create failed!");
+		app_launch_boosted=0;
+		sysfs_write(CPUFREQ_BOOST,"0");
+		return;
+	}
+	if(!rc)
+		ALOGI("pthread is created !! ");
+	return;
+}
+
 static void app_launch_boost(void *hint_data)
 {
 	int rc;
 	if ((long)hint_data == 1) {
-		ALOGE("PowerHAL HAL:App Boost ON");
+		ALOGI("PowerHAL HAL:App Boost ON");
 		sysfs_write(CPUFREQ_BOOST,"1");
+		if(!app_launch_boosted)
+		{
+			app_launch_boosted=1;
+			start_timer();
+		}
 	} else {
-		ALOGE("PowerHAL HAL:App Boost OFF");
+		ALOGI("PowerHAL HAL:App Boost OFF");
 		sysfs_write(CPUFREQ_BOOST,"0");
+		pthread_cond_signal(&thread_cond);
 	}
 
 }
+
+static int app_launch_boost_init()
+{
+	pthread_cond_init(&thread_cond, NULL);
+	pthread_mutex_init(&mutex, NULL);
+	return 0;
+}
+
 #endif
 
 static bool itux_enabled() {
@@ -154,6 +221,10 @@ static void power_init(__attribute__((unused))struct power_module *module)
 
     serviceRegistered = true;
     shw = android::interface_cast<IThermalAPI>(binder);
+
+#if APP_LAUNCH_BOOST
+	app_launch_boost_init();
+#endif
 }
 
 static void power_set_interactive(__attribute__((unused))struct power_module *module, int on)
