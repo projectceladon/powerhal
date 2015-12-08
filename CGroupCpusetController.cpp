@@ -28,41 +28,77 @@
 #include <cutils/log.h>
 #include <cutils/properties.h>
 #include <errno.h>
+#include <string.h>
 
 static const char* CPUSET_ROOT_CPUS = "/sys/fs/cgroup/cpuset/cpus";
 static const char* CPUSET_NON_INTERACTIVE_CPUS = "/sys/fs/cgroup/cpuset/power_hal/non_interactive/cpus";
+static const char* POWER_HAL_CPUSET_PROPERTY = "ro.powerhal.cpuset_config";
+static const char* POWER_HAL_CPUSET_PROPERTY_DEBUG = "persist.powerhal.cpuset_config"; /* for userdebug, eng build tuning*/
 
 CGroupCpusetController::CGroupCpusetController()
 {
     int fd;
     int ret;
+    int len;
+    char cpuset_config[PROPERTY_VALUE_MAX];
 
-    /* Default to set .cpus to 0 */
-    snprintf(mCpusetRootCpus, sizeof(mCpusetRootCpus), "0");
-
-    /**
-     * Read the default cpuset .cpus number.
-     * Will be used when device is interactive.
-     */
-    fd = open(CPUSET_ROOT_CPUS, O_RDONLY);
-
-    if (fd < 0) {
-        /* not a hard error; default is "0" (CPU core #0 only). */
-        ALOGV("Could not open the file: %s (%d)", CPUSET_ROOT_CPUS, errno);
+#ifdef POWERHAL_DEBUG
+    len = property_get(POWER_HAL_CPUSET_PROPERTY_DEBUG, cpuset_config, NULL);
+    if (len > 0) {
+        cpuset_config[len] = '\0';
+        char *conf;
+        char *next_token;
+        conf = strtok_r(cpuset_config, ";", &next_token);
+        if (conf)
+            snprintf(mCpusetRootCpus, strlen(conf)+1, "%s", conf);
+        conf = strtok_r(NULL, ";", &next_token);
+        if (conf)
+            snprintf(mCpusetNoninterCpus, strlen(conf)+1, "%s", conf);
         return;
     }
+#endif
+    len = property_get(POWER_HAL_CPUSET_PROPERTY, cpuset_config, NULL);
+    if (len > 0) {
+        cpuset_config[len] = '\0';
+        char *conf;
+        char *next_token;
+        conf = strtok_r(cpuset_config, ";", &next_token);
+        if (conf)
+            snprintf(mCpusetRootCpus, strlen(conf)+1, "%s", conf);
+        conf = strtok_r(NULL, ";", &next_token);
+        if (conf)
+            snprintf(mCpusetNoninterCpus, strlen(conf)+1, "%s", conf);
+    } else {
+        /* Default to set .cpus to 0 */
+        snprintf(mCpusetRootCpus, sizeof(mCpusetRootCpus), "0");
 
-    ret = read(fd, mCpusetRootCpus, sizeof(mCpusetRootCpus));
-    if (ret <= 0) {
-        /* nothing is being read but not a hard error */
-        /* default is "0" (CPU core #0 only).         */
-        ALOGV("Error when reading from file (%d)", errno);
+        /**
+         * Read the default cpuset .cpus number.
+         * Will be used when device is interactive.
+         */
+        fd = open(CPUSET_ROOT_CPUS, O_RDONLY);
+
+        if (fd < 0) {
+            /* not a hard error; default is "0" (CPU core #0 only). */
+            ALOGV("Could not open the file: %s (%d)", CPUSET_ROOT_CPUS, errno);
+            return;
+        }
+
+        ret = read(fd, mCpusetRootCpus, sizeof(mCpusetRootCpus));
+        if (ret <= 0) {
+            /* nothing is being read but not a hard error */
+            /* default is "0" (CPU core #0 only).         */
+            ALOGV("Error when reading from file (%d)", errno);
+            close(fd);
+            return;
+        }
+
+        mCpusetRootCpus[sizeof(mCpusetRootCpus) - 1] = '\0';
         close(fd);
-        return;
+        mCpusetNoninterCpus[0] = '0';
+        mCpusetNoninterCpus[1] = '\0';
     }
-
-    mCpusetRootCpus[sizeof(mCpusetRootCpus) - 1] = '\0';
-    close(fd);
+    return;
 }
 
 void CGroupCpusetController::setState(int state)
@@ -87,7 +123,7 @@ void CGroupCpusetController::setState(int state)
     }
     else {
         /* Restrict when non-interactive */
-        ret = write(fd, "0", 1);
+        ret = write(fd, mCpusetNoninterCpus, sizeof(mCpusetNoninterCpus));
     }
 
     if (ret < 0) {

@@ -36,5 +36,6 @@ class CGroupCpusetController {
   private:
       /* "all" cpus string in root cpuset */
       char mCpusetRootCpus[10];
+      char mCpusetNoninterCpus[10];
 };
 #endif  // ANDROID_CGROUP_CPUSET_CONTROLLER_H

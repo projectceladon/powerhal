@@ -45,6 +45,9 @@ LOCAL_MODULE_TAGS := optional
 ifeq ($(APP_LAUNCH_BOOST), true)
    LOCAL_CFLAGS += -DAPP_LAUNCH_BOOST
 endif
+ifneq ($(TARGET_BUILD_VARIANT),user)
+    LOCAL_CFLAGS += -DPOWERHAL_DEBUG
+endif
 
 LOCAL_MODULE_OWNER := intel
 
