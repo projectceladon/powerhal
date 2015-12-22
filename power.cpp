@@ -104,6 +104,7 @@ static int sysfs_write(char *path, char *s)
     if (len < 0) {
         strerror_r(errno, buf, sizeof(buf));
         ALOGE("Error writing to %s: %s\n", path, buf);
+        close(fd);
         return -1;
     }
 
@@ -150,8 +151,13 @@ void start_timer()
 		sysfs_write(CPUFREQ_BOOST,"0");
 		return;
 	}
-	if(!rc)
+	if(!rc) {
 		ALOGI("pthread is created !! ");
+                if ((rc = pthread_detach(thread_id)) != 0) {
+                    ALOGE("%s: Failed to detatch thread (errno = %#x, message = '%s')",
+                            __func__, rc, strerror(rc));
+                }
+        }
 	return;
 }
 
@@ -206,6 +212,10 @@ static void power_init(__attribute__((unused))struct power_module *module)
     if (!sysfs_write(TOUCHBOOST_PULSE_SYSFS, "1"))
         interactiveActive = true;
 
+#if APP_LAUNCH_BOOST
+	app_launch_boost_init();
+#endif
+
     if (itux_enabled()) //we do not need the connection
         return;
 
@@ -221,10 +231,6 @@ static void power_init(__attribute__((unused))struct power_module *module)
 
     serviceRegistered = true;
     shw = android::interface_cast<IThermalAPI>(binder);
-
-#if APP_LAUNCH_BOOST
-	app_launch_boost_init();
-#endif
 }
 
 static void power_set_interactive(__attribute__((unused))struct power_module *module, int on)
