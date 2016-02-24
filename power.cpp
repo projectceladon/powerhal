@@ -36,8 +36,9 @@
 #include <thd_binder_client.h>
 
 #define ENABLE 1
-#define TOUCHBOOST_PULSE_SYSFS    "/sys/devices/system/cpu/cpufreq/interactive/touchboostpulse"
-#define CPUFREQ_BOOST	"/sys/devices/system/cpu/cpufreq/interactive/boost"
+#define TOUCHBOOST_PULSE_SYSFS "/sys/devices/system/cpu/cpufreq/interactive/touchboostpulse"
+static const char cpufreq_boost_interactive[] = "/sys/devices/system/cpu/cpufreq/interactive/boost";
+static const char cpufreq_boost_intel_pstate[] = "/sys/devices/system/cpu/intel_pstate/min_perf_pct";
 
 /*
  * This parameter is to identify continuous touch/scroll events.
@@ -72,6 +73,7 @@ static DevicePowerMonitor powerMonitor;
 static android::sp<IThermalAPI> shw;
 static bool serviceRegistered = false;
 static bool interactiveActive = false;
+static bool intelPStateActive = false;
 
 struct intel_power_module{
     struct power_module container;
@@ -80,7 +82,7 @@ struct intel_power_module{
     int vsync_boost;
 };
 
-static int sysfs_write(char *path, char *s)
+static int sysfs_write(const char *path, char *s)
 {
     char buf[80];
     int len;
@@ -104,17 +106,58 @@ static int sysfs_write(char *path, char *s)
     return 0;
 }
 
-#ifdef APP_LAUNCH_BOOST
-static void app_launch_boost(void *hint_data)
+static int sysfs_read(const char *path, char *s, int length)
 {
-	int rc;
-	if (hint_data != NULL) {
-		ALOGI("PowerHAL HAL:App Boost ON");
-		sysfs_write(CPUFREQ_BOOST,"1");
-	} else {
-		ALOGI("PowerHAL HAL:App Boost OFF");
-		sysfs_write(CPUFREQ_BOOST,"0");
+    char buf[80];
+    int len;
+    int fd = open(path, O_RDONLY);
+
+    if (fd < 0) {
+        strerror_r(errno, buf, sizeof(buf));
+        ALOGE("Error opening %s: %s\n", path, buf);
+        return -1;
+    }
+
+    len = read(fd, s, length);
+    if (len < 0) {
+        strerror_r(errno, buf, sizeof(buf));
+        ALOGE("Error reading from %s: %s\n", path, buf);
+        close(fd);
+        return -1;
+    }
+
+    close(fd);
+    return 0;
+}
+
+#ifdef APP_LAUNCH_BOOST
+static void app_launch_boost_interactive(void *hint_data)
+{
+    if (hint_data != NULL) {
+        ALOGI("PowerHAL HAL:App Boost ON");
+        sysfs_write(cpufreq_boost_interactive,(char *)"1");
+    } else {
+        ALOGI("PowerHAL HAL:App Boost OFF");
+        sysfs_write(cpufreq_boost_interactive,(char *)"0");
+    }
+}
+
+static void app_launch_boost_intel_pstate(void *hint_data)
+{
+    static char old_min_perf_pct[4];
+    static bool boosted = false;
+
+    if ((hint_data != NULL) && (boosted == false)) {
+        ALOGI("PowerHAL HAL:App Boost ON");
+        if (!sysfs_read(cpufreq_boost_intel_pstate, old_min_perf_pct, sizeof(old_min_perf_pct))) {
+	        sysfs_write(cpufreq_boost_intel_pstate,(char *)"100");
+	        boosted = true;
 	}
+    } else if (boosted == true) {
+        ALOGI("PowerHAL HAL:App Boost OFF");
+        sysfs_write(cpufreq_boost_intel_pstate, old_min_perf_pct);
+        boosted = false;
+    }
 }
 #endif
 
@@ -133,13 +176,16 @@ static void power_init(__attribute__((unused))struct power_module *module)
     sp<IServiceManager> sm = defaultServiceManager();
     sp<IBinder> binder;
     int cnt = 0;
+    char buf[1];
 
     /* Enable all devices by default */
     powerMonitor.setState(ENABLE);
     cgroupCpusetController.setState(ENABLE);
 
-    if (!sysfs_write(TOUCHBOOST_PULSE_SYSFS, "1"))
+    if (!sysfs_read(TOUCHBOOST_PULSE_SYSFS, buf, 1))
         interactiveActive = true;
+    if (!sysfs_read(cpufreq_boost_intel_pstate, buf, 1))
+	intelPStateActive = true;
 
     if (itux_enabled()) //we do not need the connection
         return;
@@ -166,7 +212,6 @@ static void power_set_interactive(__attribute__((unused))struct power_module *mo
 
 static void power_hint_worker(void *hint_data)
 {
-    int rc;
     struct PowerSaveMessage data = { 1 , 50 };
     status_t status;
 
@@ -220,7 +265,7 @@ static void power_hint(struct power_module *module, power_hint_t hint,
            intel->timer_set = 1;
         }
         if (!intel->touchboost_disable) {
-            sysfs_write(TOUCHBOOST_PULSE_SYSFS, "1");
+            sysfs_write(TOUCHBOOST_PULSE_SYSFS, (char *)"1");
         }
         break;
     case POWER_HINT_VSYNC:
@@ -239,7 +284,7 @@ static void power_hint(struct power_module *module, power_hint_t hint,
         }
         if (intel->vsync_boost) {
             if (((unsigned long)data != 0) && (vsync_count > 0)) {
-                sysfs_write(TOUCHBOOST_PULSE_SYSFS,"1");
+                sysfs_write(TOUCHBOOST_PULSE_SYSFS, (char *)"1");
                 vsync_count-- ;
             if (vsync_count == 0)
                intel->vsync_boost = 0;
@@ -250,9 +295,12 @@ static void power_hint(struct power_module *module, power_hint_t hint,
         power_hint_worker(data);
         break;
 
-#ifdef APP_LAUNCH_BOOST
+#if APP_LAUNCH_BOOST
     case POWER_HINT_APP_LAUNCH:
-		app_launch_boost(data);
+        if (interactiveActive)
+            app_launch_boost_interactive(data);
+	else if (intelPStateActive)
+            app_launch_boost_intel_pstate(data);
 #endif
     default:
         break;
