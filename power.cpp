@@ -161,13 +161,14 @@ static void app_launch_boost_intel_pstate(void *hint_data)
 }
 #endif
 
-static bool itux_enabled() {
+static bool itux_or_dptf_enabled() {
     char value[PROPERTY_VALUE_MAX];
     int length = property_get("persist.thermal.mode", value, "thermald");
     std::string mode(value);
 
-    if (mode == "itux" || mode == "ituxd")
+    if (mode == "itux" || mode == "ituxd" || mode == "dptf")
         return true;
+
     return false;
 }
 
@@ -187,7 +188,7 @@ static void power_init(__attribute__((unused))struct power_module *module)
     if (!sysfs_read(cpufreq_boost_intel_pstate, buf, 1))
 	intelPStateActive = true;
 
-    if (itux_enabled()) //we do not need the connection
+    if (itux_or_dptf_enabled()) //we do not need the connection
         return;
 
     do {
