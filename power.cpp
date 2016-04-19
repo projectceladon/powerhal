@@ -301,13 +301,6 @@ static void power_hint(struct power_module *module, power_hint_t hint,
         power_hint_worker(data);
         break;
 
-#if APP_LAUNCH_BOOST
-    case POWER_HINT_APP_LAUNCH:
-        if (interactiveActive)
-            app_launch_boost_interactive(data);
-	else if (intelPStateActive)
-            app_launch_boost_intel_pstate(data);
-#endif
     default:
         break;
     }
