@@ -147,18 +147,23 @@ static void app_launch_boost_intel_pstate(void *hint_data)
     static char old_min_perf_pct[4];
     static bool boosted = false;
 
-    if ((hint_data != NULL) && (boosted == false)) {
+    if (hint_data != NULL) {
         ALOGI("PowerHAL HAL:App Boost ON");
-        if (!sysfs_read(cpufreq_boost_intel_pstate, old_min_perf_pct, sizeof(old_min_perf_pct))) {
-	        sysfs_write(cpufreq_boost_intel_pstate,(char *)"100");
-	        boosted = true;
-	}
-    } else if (boosted == true) {
+        if (boosted == false) {
+            if (!sysfs_read(cpufreq_boost_intel_pstate, old_min_perf_pct, sizeof(old_min_perf_pct))) {
+                sysfs_write(cpufreq_boost_intel_pstate,(char *)"100");
+                boosted = true;
+            }
+        }
+    } else {
         ALOGI("PowerHAL HAL:App Boost OFF");
-        sysfs_write(cpufreq_boost_intel_pstate, old_min_perf_pct);
-        boosted = false;
+        if (boosted == true) {
+            sysfs_write(cpufreq_boost_intel_pstate, old_min_perf_pct);
+            boosted = false;
+        }
     }
 }
+
 #endif
 
 static bool itux_or_dptf_enabled() {
