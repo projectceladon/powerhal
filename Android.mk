@@ -50,6 +50,8 @@ endif
 
 LOCAL_MODULE_OWNER := intel
 
+LOCAL_INIT_RC := powerhal.rc
+
 include $(BUILD_SHARED_LIBRARY)
 
 include $(call first-makefiles-under,$(LOCAL_PATH))

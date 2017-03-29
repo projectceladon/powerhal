@@ -1,0 +1,9 @@
+on post-fs
+    mkdir /dev/cpuset/non_interactive
+    write /dev/cpuset/non_interactive/mems 0
+    write /dev/cpuset/non_interactive/cpus 0-3
+    chown system system /dev/cpuset/non_interactive
+    chown system system /dev/cpuset/non_interactive/cpus
+
+    setprop ro.powerhal.cpuset_config """"
+
