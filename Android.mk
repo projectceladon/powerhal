@@ -26,6 +26,7 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH) \
                     system/native/include
 
 LOCAL_MODULE := power.$(TARGET_BOARD_PLATFORM)
+LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 
 # main libpower source
