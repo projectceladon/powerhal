@@ -17,21 +17,27 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 #include external/stlport/libstlport.mk
+
 LOCAL_C_INCLUDES += $(LOCAL_PATH) \
-                    external/thermal_daemon/src \
                     external/libxml2/include \
                     external/icu/icu4c/source/common \
                     system/core/include/ \
                     hardware/include \
                     system/native/include
 
+
 LOCAL_MODULE := power.$(TARGET_BOARD_PLATFORM)
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
 
 # main libpower source
-LOCAL_SRC_FILES := power.cpp \
-                   thd_binder_client.cpp
+LOCAL_SRC_FILES := power.cpp
+
+ifeq ($(HAS_THD), true)
+    LOCAL_C_INCLUDES += external/thermal_daemon/src
+    LOCAL_CFLAGS += -DHAS_THD
+    LOCAL_SRC_FILES += thd_binder_client.cpp
+endif
 
 # for all devices under /sys/power/power_HAL_suspend
 LOCAL_SRC_FILES += DevicePowerMonitor.cpp \

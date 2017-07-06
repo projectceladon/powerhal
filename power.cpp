@@ -33,7 +33,9 @@
 #include <hardware/hardware.h>
 #include "CGroupCpusetController.h"
 #include "DevicePowerMonitor.h"
+#ifdef HAS_THD
 #include <thd_binder_client.h>
+#endif
 
 #define ENABLE 1
 #define TOUCHBOOST_PULSE_SYSFS "/sys/devices/system/cpu/cpufreq/interactive/touchboostpulse"
@@ -66,11 +68,15 @@ static const char cpufreq_boost_intel_pstate[] = "/sys/devices/system/cpu/intel_
  */
 #define VSYNC_TOUCH_TIME 30
 
+#ifdef HAS_THD
 using namespace powerhal_api;
+#endif
 
 static CGroupCpusetController cgroupCpusetController;
 static DevicePowerMonitor powerMonitor;
+#ifdef HAS_THD
 static android::sp<IThermalAPI> shw;
+#endif
 static bool serviceRegistered = false;
 static bool interactiveActive = false;
 static bool intelPStateActive = false;
@@ -179,8 +185,10 @@ static bool itux_or_dptf_enabled() {
 
 static void power_init(__attribute__((unused))struct power_module *module)
 {
+#ifdef HAS_THD
     sp<IServiceManager> sm = defaultServiceManager();
     sp<IBinder> binder;
+#endif
     int cnt = 0;
     char buf[1];
 
@@ -196,6 +204,7 @@ static void power_init(__attribute__((unused))struct power_module *module)
     if (itux_or_dptf_enabled()) //we do not need the connection
         return;
 
+#ifdef HAS_THD
     do {
         binder = sm->getService(android::String16(SERVICE_NAME));
         if (binder != 0)
@@ -205,9 +214,11 @@ static void power_init(__attribute__((unused))struct power_module *module)
         if (cnt++ > 10) //do not wait forever
             return;
     } while (true);
-
+#endif
     serviceRegistered = true;
+#ifdef HAS_THD
     shw = android::interface_cast<IThermalAPI>(binder);
+#endif
 }
 
 static void power_set_interactive(__attribute__((unused))struct power_module *module, int on)
@@ -218,17 +229,18 @@ static void power_set_interactive(__attribute__((unused))struct power_module *mo
 
 static void power_hint_worker(void *hint_data)
 {
+#ifdef HAS_THD
     struct PowerSaveMessage data = { 1 , 50 };
     status_t status;
-
+#endif
     if (!serviceRegistered)
         return;
 
+#ifdef HAS_THD
     if (NULL == hint_data)
         data.on = 0;
-
     shw->sendPowerSaveMsg(&data);
-
+#endif
 }
 
 static void power_hint(struct power_module *module, power_hint_t hint,
