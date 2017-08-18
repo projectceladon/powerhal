@@ -183,6 +183,176 @@ static bool itux_or_dptf_enabled() {
     return false;
 }
 
+#ifdef POWER_THROTTLE
+
+static int update_cpu_max_freq(bool is_limit)
+{
+    int fd0, fd1, fd2, fd3;
+    int ret0, ret1, ret2, ret3;
+    char buf[8] = "";
+    char max0[8] = "1200000";
+    char max1[8] = "2400000";
+
+    fd0 = open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq", O_RDWR);
+    fd1 = open("/sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq", O_RDWR);
+    fd2 = open("/sys/devices/system/cpu/cpu2/cpufreq/scaling_max_freq", O_RDWR);
+    fd3 = open("/sys/devices/system/cpu/cpu3/cpufreq/scaling_max_freq", O_RDWR);
+
+    if (fd0 < 0 || fd1 < 0 || fd2 < 0 || fd3 < 0) {
+        ALOGE("open cpufreq scaling_max_freq failed (%d, %d, %d, %d)\n", fd0, fd1, fd2, fd3);
+        if (fd0 >= 0)
+            close(fd0);
+        if (fd1 >= 0)
+            close(fd1);
+        if (fd2 >= 0)
+            close(fd2);
+        if (fd3 >= 0)
+            close(fd3);
+        return -1;
+    }
+
+    if (is_limit)
+        strcpy(buf, max0);
+    else
+        strcpy(buf, max1);
+
+    ret0 = write(fd0, buf, (sizeof(buf) - 1));
+    ret1 = write(fd1, buf, (sizeof(buf) - 1));
+    ret2 = write(fd2, buf, (sizeof(buf) - 1));
+    ret3 = write(fd3, buf, (sizeof(buf) - 1));
+
+    close(fd0);
+    close(fd1);
+    close(fd2);
+    close(fd3);
+
+    if ( ret0 < 0 || ret1 < 0 || ret2 < 0 || ret3 < 0 ) {
+        ALOGE("write cpufreq scaling_max_freq %s failed (%d, %d, %d, %d)\n", buf, ret0, ret1, ret2, ret3);
+        return -1;
+    }
+
+    ALOGI("cpufreq scaling_max_freq = %s\n", buf);
+    return 0;
+}
+
+
+int get_actual_freq(int fd)
+{
+    unsigned long freq = 0;
+    char buf[4] = "";
+    int ret;
+
+    ret = read(fd, buf, (sizeof(buf) - 1));
+    if (ret < 0) {
+        ALOGE("read gt_act_freq_mhz failed\n");
+        return -1;
+    }
+
+    buf[ret] = '\0';
+    errno = 0;
+    freq = strtoul(buf, NULL, 10);
+    if ((freq == ULONG_MAX && errno == ERANGE) || errno == EINVAL) {
+        ALOGE("read gt_act_freq_mhz error %d\n", errno);
+        return -1;
+    }
+
+    ret = lseek(fd, 0, SEEK_SET);
+    errno = 0;
+    if (ret < 0) {
+        ALOGE("lseek gt_act_freq_mhz error %d\n", errno);
+        return -1;
+    }
+
+    return freq;
+}
+
+
+#define MAX_FAIL_TIMES        60
+#define UP_THRESHOLD          600
+#define DOWN_THRESHOLD        200
+
+static void *monitor_gpu_thread(void *data)
+{
+    int freq = 0;
+    int old = 0;
+    bool is_limit = 0;
+    int i = 0;
+    char prop_value[92];
+    char throttle_off[92];
+    bool boot = 0;
+    int fd;
+
+    ALOGI("thread %d: %s start\n", pthread_self(), __func__);
+
+    /*
+     * Block the freq limitatiion until the system boot complete,
+     * othwerwise it could influence system boot up latency
+     */
+    while (1) {
+        property_get("sys.boot_completed", prop_value, "0");
+        boot = atoi(prop_value);
+        if (boot)
+            break;
+        sleep (1);
+    }
+
+    fd = open("/sys/class/drm/card0/gt_act_freq_mhz", O_RDONLY);
+    if (fd < 0) {
+        ALOGW("open gt_act_freq_mhz failed\n");
+        pthread_exit(0);
+    }
+
+    while (1) {
+        property_get("powerhal.throttle.exit", throttle_off, "0");
+        if (strcmp(throttle_off, "1") == 0) {
+            if (is_limit) { // if decide turn off and being throttled, store the maxfreq back
+                update_cpu_max_freq(false);
+                is_limit = false;
+            }
+            ALOGW("Power throttle exit\n");
+            pthread_exit(0);
+        }
+
+        freq = get_actual_freq(fd);
+        if (freq < 0) {
+            ALOGE("get_actual_freq failed (%d)\n", ++i);
+            if (i > MAX_FAIL_TIMES) {
+                ALOGE("%s exit since continous failure\n", __func__);
+                close(fd);
+                pthread_exit(0);
+            }
+        } else {
+            i = 0;
+            if (old != freq) {
+                if (freq > UP_THRESHOLD && !is_limit) {
+                    update_cpu_max_freq(true);   // throttle
+                    is_limit = true;
+                }
+                if (freq < DOWN_THRESHOLD && is_limit) {
+                    update_cpu_max_freq(false);  // release throttle
+                    is_limit = false;
+                }
+                old = freq;
+            }
+        }
+        sleep(1);
+    }
+}
+
+static void create_once(void)
+{
+    pthread_t  monitor_gpu_thread_ptr;
+    pthread_attr_t attr;
+
+    ALOGI("%s: create monitor_gpu_thread\n", __func__);
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    pthread_create(&monitor_gpu_thread_ptr, &attr, monitor_gpu_thread, NULL);
+}
+
+pthread_once_t once = PTHREAD_ONCE_INIT;
+#endif
+
 static void power_init(__attribute__((unused))struct power_module *module)
 {
 #ifdef HAS_THD
@@ -191,6 +361,11 @@ static void power_init(__attribute__((unused))struct power_module *module)
 #endif
     int cnt = 0;
     char buf[1];
+
+    ALOGI("%s enter\n", __func__);
+#ifdef POWER_THROTTLE
+    pthread_once(&once, create_once);
+#endif
 
     /* Enable all devices by default */
     powerMonitor.setState(ENABLE);

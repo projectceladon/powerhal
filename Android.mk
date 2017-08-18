@@ -56,6 +56,10 @@ ifneq ($(TARGET_BUILD_VARIANT),user)
     LOCAL_CFLAGS += -DPOWERHAL_DEBUG
 endif
 
+ifeq ($(POWER_THROTTLE), true)
+    LOCAL_CFLAGS += -DPOWER_THROTTLE
+endif
+
 LOCAL_MODULE_OWNER := intel
 
 include $(BUILD_SHARED_LIBRARY)
