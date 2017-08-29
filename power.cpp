@@ -227,7 +227,7 @@ static void power_set_interactive(__attribute__((unused))struct power_module *mo
     cgroupCpusetController.setState(on);
 }
 
-static void power_hint_worker(void *hint_data)
+static void power_hint_worker(void __attribute__((unused)) *hint_data)
 {
 #ifdef HAS_THD
     struct PowerSaveMessage data = { 1 , 50 };
@@ -323,7 +323,7 @@ static struct hw_module_methods_t power_module_methods = {
 };
 
 struct intel_power_module HAL_MODULE_INFO_SYM = {
-    container:{
+    .container = {
         .common = {
             .tag = HARDWARE_MODULE_TAG,
             .module_api_version = POWER_MODULE_API_VERSION_0_2,
@@ -339,7 +339,7 @@ struct intel_power_module HAL_MODULE_INFO_SYM = {
     .setInteractive = power_set_interactive,
     .powerHint = power_hint,
     },
-    touchboost_disable: 0,
-    timer_set: 0,
-    vsync_boost: 0,
+    .touchboost_disable = 0,
+    .timer_set = 0,
+    .vsync_boost = 0,
 };
