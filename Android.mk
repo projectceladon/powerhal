@@ -44,7 +44,7 @@ LOCAL_SRC_FILES += DevicePowerMonitor.cpp \
                    DevicePowerMonitorInfo.cpp \
                    CGroupCpusetController.cpp
 
-LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libdl libicuuc libicui18n libbinder
+LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libdl libbinder
 
 LOCAL_MODULE_TAGS := optional
 
