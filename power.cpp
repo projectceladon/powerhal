@@ -271,7 +271,7 @@ int get_actual_freq(int fd)
 #define UP_THRESHOLD          600
 #define DOWN_THRESHOLD        200
 
-static void *monitor_gpu_thread(void *data)
+static void *monitor_gpu_thread(void __attribute__((unused)) *data)
 {
     int freq = 0;
     int old = 0;
@@ -282,7 +282,7 @@ static void *monitor_gpu_thread(void *data)
     bool boot = 0;
     int fd;
 
-    ALOGI("thread %d: %s start\n", pthread_self(), __func__);
+    ALOGI("thread %ld: %s start\n", pthread_self(), __func__);
 
     /*
      * Block the freq limitatiion until the system boot complete,
