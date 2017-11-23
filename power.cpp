@@ -19,7 +19,7 @@
 #include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
-
+#include <string>
 #include <pthread.h>
 
 #include <hardware/power.h>
@@ -185,102 +185,107 @@ static bool itux_or_dptf_enabled() {
 
 #ifdef POWER_THROTTLE
 
-static int update_cpu_max_freq(bool is_limit)
+#define MAX_FAIL_TIMES   60
+
+static char cpu_max_low[8];
+static char cpu_max_high[8];
+
+static int update_cpu_max_freq(bool is_throt)
 {
-    int fd0, fd1, fd2, fd3;
-    int ret0, ret1, ret2, ret3;
+    int fd[4];
     char buf[8] = "";
-    char max0[8] = "1200000";
-    char max1[8] = "2400000";
+    int i, ret;
 
-    fd0 = open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq", O_RDWR);
-    fd1 = open("/sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq", O_RDWR);
-    fd2 = open("/sys/devices/system/cpu/cpu2/cpufreq/scaling_max_freq", O_RDWR);
-    fd3 = open("/sys/devices/system/cpu/cpu3/cpufreq/scaling_max_freq", O_RDWR);
+    fd[0] = open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq", O_RDWR);
+    fd[1] = open("/sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq", O_RDWR);
+    fd[2] = open("/sys/devices/system/cpu/cpu2/cpufreq/scaling_max_freq", O_RDWR);
+    fd[3] = open("/sys/devices/system/cpu/cpu3/cpufreq/scaling_max_freq", O_RDWR);
 
-    if (fd0 < 0 || fd1 < 0 || fd2 < 0 || fd3 < 0) {
-        ALOGE("open cpufreq scaling_max_freq failed (%d, %d, %d, %d)\n", fd0, fd1, fd2, fd3);
-        if (fd0 >= 0)
-            close(fd0);
-        if (fd1 >= 0)
-            close(fd1);
-        if (fd2 >= 0)
-            close(fd2);
-        if (fd3 >= 0)
-            close(fd3);
+    if (fd[0] < 0 && fd[1] < 0 && fd[2] < 0 && fd[3] < 0) {
+        ALOGE("open cpu scaling_max_freq failed (%d, %d, %d, %d)\n", fd[0], fd[1], fd[2], fd[3]);
         return -1;
     }
 
-    if (is_limit)
-        strcpy(buf, max0);
+    if (is_throt)
+        strcpy(buf, cpu_max_low);
     else
-        strcpy(buf, max1);
+        strcpy(buf, cpu_max_high);
 
-    ret0 = write(fd0, buf, (sizeof(buf) - 1));
-    ret1 = write(fd1, buf, (sizeof(buf) - 1));
-    ret2 = write(fd2, buf, (sizeof(buf) - 1));
-    ret3 = write(fd3, buf, (sizeof(buf) - 1));
-
-    close(fd0);
-    close(fd1);
-    close(fd2);
-    close(fd3);
-
-    if ( ret0 < 0 || ret1 < 0 || ret2 < 0 || ret3 < 0 ) {
-        ALOGE("write cpufreq scaling_max_freq %s failed (%d, %d, %d, %d)\n", buf, ret0, ret1, ret2, ret3);
-        return -1;
+    for (i = 0; i < 4; i++) {
+        if (fd[i] > 0) {
+            ret = write(fd[i], buf, (sizeof(buf) - 1));
+            close(fd[i]);
+            if (ret < 0) {
+                 ALOGE("write cpu%d scaling_max_freq failed (%d)\n", i, ret);
+                 return -1;
+            }
+        }
     }
-
-    ALOGI("cpufreq scaling_max_freq = %s\n", buf);
+    ALOGI("set cpu scaling_max_freq to %s\n", buf);
     return 0;
 }
 
-
-int get_actual_freq(int fd)
+int get_fd_value(int fd)
 {
-    unsigned long freq = 0;
-    char buf[4] = "";
+    unsigned long data = 0;
+    char buf[8] = "";
     int ret;
 
     ret = read(fd, buf, (sizeof(buf) - 1));
     if (ret < 0) {
-        ALOGE("read gt_act_freq_mhz failed\n");
+        ALOGE("read failed\n");
         return -1;
     }
 
     buf[ret] = '\0';
     errno = 0;
-    freq = strtoul(buf, NULL, 10);
-    if ((freq == ULONG_MAX && errno == ERANGE) || errno == EINVAL) {
-        ALOGE("read gt_act_freq_mhz error %d\n", errno);
+    data = strtoul(buf, NULL, 10);
+    if ((data == ULONG_MAX && errno == ERANGE) || errno == EINVAL) {
+        ALOGE("strtoul error %d\n", errno);
         return -1;
     }
 
     ret = lseek(fd, 0, SEEK_SET);
     errno = 0;
     if (ret < 0) {
-        ALOGE("lseek gt_act_freq_mhz error %d\n", errno);
+        ALOGE("lseek error %d\n", errno);
         return -1;
     }
 
-    return freq;
+    return data;
 }
 
+int sysfs_read_value(const char *path)
+{
+    int data;
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        ALOGE("open %s failed\n", path);
+        return -1;
+    }
 
-#define MAX_FAIL_TIMES        60
-#define UP_THRESHOLD          600
-#define DOWN_THRESHOLD        200
+    data = get_fd_value(fd);
+    if (data < 0)
+        ALOGE("read value from %s failed\n", path);
 
-static void *monitor_gpu_thread(void __attribute__((unused)) *data)
+    close(fd);
+    return data;
+}
+
+static void *power_throttle_thread(void __attribute__((unused)) *data)
 {
     int freq = 0;
     int old = 0;
-    bool is_limit = 0;
+    bool is_throt = 0;
     int i = 0;
     char prop_value[92];
     char throttle_off[92];
     bool boot = 0;
     int fd;
+    int gpu_min_freq, gpu_max_freq;
+    int cpu_min_freq, cpu_max_freq;
+    int cpu_max_freq_new;
+    int trigger_limit, hysteresis_limit;
 
     ALOGI("thread %ld: %s start\n", pthread_self(), __func__);
 
@@ -302,20 +307,49 @@ static void *monitor_gpu_thread(void __attribute__((unused)) *data)
         pthread_exit(0);
     }
 
+    gpu_min_freq = sysfs_read_value("/sys/class/drm/card0/gt_min_freq_mhz");
+    if (gpu_min_freq < 0)
+        pthread_exit(0);
+    gpu_max_freq = sysfs_read_value("/sys/class/drm/card0/gt_max_freq_mhz");
+    if (gpu_max_freq < 0)
+        pthread_exit(0);
+
+    cpu_min_freq = sysfs_read_value("/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq");
+    if (cpu_min_freq < 0)
+        pthread_exit(0);
+    cpu_max_freq = sysfs_read_value("/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq");
+    if (cpu_max_freq < 0)
+        pthread_exit(0);
+
+    cpu_max_freq_new = cpu_min_freq + (cpu_max_freq - cpu_min_freq) / 4;
+    trigger_limit    = gpu_min_freq + (gpu_max_freq - gpu_min_freq) * 7 / 10;
+    hysteresis_limit = gpu_min_freq + (gpu_max_freq - gpu_min_freq) * 2 / 10;
+
+    ALOGI("cpu_max_freq_new = %d, trigger_limit = %d, hysteresis_limit = %d\n",
+        cpu_max_freq_new, trigger_limit, hysteresis_limit);
+
+    std::string max_new  = std::to_string(cpu_max_freq_new);
+    std::string max_orig = std::to_string(cpu_max_freq);
+
+    strcpy(cpu_max_low, max_new.c_str());
+    strcpy(cpu_max_high, max_orig.c_str());
+
+    ALOGI("cpu_max_low = %s, cpu_max_high = %s\n", cpu_max_low, cpu_max_high);
+
     while (1) {
         property_get("powerhal.throttle.exit", throttle_off, "0");
         if (strcmp(throttle_off, "1") == 0) {
-            if (is_limit) { // if decide turn off and being throttled, store the maxfreq back
+            if (is_throt) {
                 update_cpu_max_freq(false);
-                is_limit = false;
+                is_throt = false;
             }
             ALOGW("Power throttle exit\n");
             pthread_exit(0);
         }
 
-        freq = get_actual_freq(fd);
+        freq = get_fd_value(fd);
         if (freq < 0) {
-            ALOGE("get_actual_freq failed (%d)\n", ++i);
+            ALOGE("get gpu actual_freq failed (%d)\n", ++i);
             if (i > MAX_FAIL_TIMES) {
                 ALOGE("%s exit since continous failure\n", __func__);
                 close(fd);
@@ -324,13 +358,13 @@ static void *monitor_gpu_thread(void __attribute__((unused)) *data)
         } else {
             i = 0;
             if (old != freq) {
-                if (freq > UP_THRESHOLD && !is_limit) {
+                if (freq >= trigger_limit && !is_throt) {
                     update_cpu_max_freq(true);   // throttle
-                    is_limit = true;
+                    is_throt = true;
                 }
-                if (freq < DOWN_THRESHOLD && is_limit) {
+                if (freq <= hysteresis_limit && is_throt) {
                     update_cpu_max_freq(false);  // release throttle
-                    is_limit = false;
+                    is_throt = false;
                 }
                 old = freq;
             }
@@ -341,13 +375,13 @@ static void *monitor_gpu_thread(void __attribute__((unused)) *data)
 
 static void create_once(void)
 {
-    pthread_t  monitor_gpu_thread_ptr;
+    pthread_t  power_throt_ptr;
     pthread_attr_t attr;
 
-    ALOGI("%s: create monitor_gpu_thread\n", __func__);
+    ALOGI("%s: create power_throttle_thread\n", __func__);
     pthread_attr_init(&attr);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    pthread_create(&monitor_gpu_thread_ptr, &attr, monitor_gpu_thread, NULL);
+    pthread_create(&power_throt_ptr, &attr, power_throttle_thread, NULL);
 }
 
 pthread_once_t once = PTHREAD_ONCE_INIT;
