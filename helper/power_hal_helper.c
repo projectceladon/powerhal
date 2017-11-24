@@ -28,6 +28,7 @@
 #include <cutils/log.h>
 #include <cutils/properties.h>
 #include <errno.h>
+#include <unistd.h>
 
 static const char* PROPERTY_NON_INTERACTIVE_PROC = "sys.power_hal.niproc";
 

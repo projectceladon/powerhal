@@ -29,7 +29,7 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH) \
 LOCAL_MODULE := power.$(TARGET_BOARD_PLATFORM)
 LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
-
+LOCAL_HEADER_LIBRARIES += libhardware_headers
 # main libpower source
 LOCAL_SRC_FILES := power.cpp
 
