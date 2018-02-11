@@ -19,7 +19,7 @@ include $(CLEAR_VARS)
 LOCAL_C_INCLUDES += $(LOCAL_PATH)
 
 LOCAL_MODULE := power_hal_helper
-
+LOCAL_CFLAGS += -Wno-error
 LOCAL_SRC_FILES := power_hal_helper.c
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_VENDOR_EXECUTABLES)
