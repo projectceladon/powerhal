@@ -342,12 +342,10 @@ static void *monitor_gpu_thread(void __attribute__((unused)) *data)
 static void create_once(void)
 {
     pthread_t  monitor_gpu_thread_ptr;
-    pthread_attr_t attr;
 
     ALOGI("%s: create monitor_gpu_thread\n", __func__);
-    pthread_attr_init(&attr);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    pthread_create(&monitor_gpu_thread_ptr, &attr, monitor_gpu_thread, NULL);
+
+    pthread_create(&monitor_gpu_thread_ptr, NULL, monitor_gpu_thread, NULL);
 }
 
 pthread_once_t once = PTHREAD_ONCE_INIT;
