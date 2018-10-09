@@ -32,8 +32,8 @@
 
 static const char* CPUSET_ROOT_CPUS = "/dev/cpuset/cpus";
 static const char* CPUSET_NON_INTERACTIVE_CPUS = "/dev/cpuset/non_interactive/cpus";
-static const char* POWER_HAL_CPUSET_PROPERTY = "ro.powerhal.cpuset_config";
-static const char* POWER_HAL_CPUSET_PROPERTY_DEBUG = "persist.powerhal.cpuset_config"; /* for userdebug, eng build tuning*/
+static const char* POWER_HAL_CPUSET_PROPERTY = "ro.vendor.powerhal.cpuset_config";
+static const char* POWER_HAL_CPUSET_PROPERTY_DEBUG = "persist.vendor.powerhal.cpuset_config"; /* for userdebug, eng build tuning*/
 
 CGroupCpusetController::CGroupCpusetController()
 {
