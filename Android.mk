@@ -18,7 +18,6 @@ include $(CLEAR_VARS)
 
 #include external/stlport/libstlport.mk
 LOCAL_C_INCLUDES += $(LOCAL_PATH) \
-                    external/thermal_daemon/src \
                     external/libxml2/include \
                     external/icu/icu4c/source/common \
                     system/core/include/ \
@@ -26,7 +25,9 @@ LOCAL_C_INCLUDES += $(LOCAL_PATH) \
                     system/native/include
 
 LOCAL_MODULE := power.$(TARGET_BOARD_PLATFORM)
+LOCAL_PROPRIETARY_MODULE := true
 LOCAL_MODULE_RELATIVE_PATH := hw
+LOCAL_HEADER_LIBRARIES += libhardware_headers
 
 # main libpower source
 LOCAL_SRC_FILES := power.cpp
@@ -36,7 +37,7 @@ LOCAL_SRC_FILES += DevicePowerMonitor.cpp \
                    DevicePowerMonitorInfo.cpp \
                    CGroupCpusetController.cpp
 
-LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libdl libicuuc libicui18n libbinder
+LOCAL_SHARED_LIBRARIES := liblog libcutils libutils libdl libbinder
 
 LOCAL_MODULE_TAGS := optional
 
@@ -49,8 +50,6 @@ ifneq ($(TARGET_BUILD_VARIANT),user)
 endif
 
 LOCAL_MODULE_OWNER := intel
-
-LOCAL_INIT_RC := powerhal.rc
 
 include $(BUILD_SHARED_LIBRARY)
 
