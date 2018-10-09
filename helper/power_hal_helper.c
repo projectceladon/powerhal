@@ -30,7 +30,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-static const char* PROPERTY_NON_INTERACTIVE_PROC = "sys.power_hal.niproc";
+static const char* PROPERTY_NON_INTERACTIVE_PROC = "vendor.power_hal.niproc";
 
 #define PROCESS_NAME_LEN 32
 

@@ -174,7 +174,7 @@ static void app_launch_boost_intel_pstate(void *hint_data)
 
 static bool itux_or_dptf_enabled() {
     char value[PROPERTY_VALUE_MAX];
-    int length = property_get("persist.thermal.mode", value, "thermald");
+    int length = property_get("persist.vendor.thermal.mode", value, "thermald");
     std::string mode(value);
 
     if (mode == "itux" || mode == "ituxd" || mode == "dptf")
@@ -303,7 +303,7 @@ static void *monitor_gpu_thread(void __attribute__((unused)) *data)
     }
 
     while (1) {
-        property_get("powerhal.throttle.exit", throttle_off, "0");
+        property_get("vendor.powerhal.throttle.exit", throttle_off, "0");
         if (strcmp(throttle_off, "1") == 0) {
             if (is_limit) { // if decide turn off and being throttled, store the maxfreq back
                 update_cpu_max_freq(false);
