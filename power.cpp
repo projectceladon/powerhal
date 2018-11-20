@@ -289,7 +289,7 @@ static void *monitor_gpu_thread(void __attribute__((unused)) *data)
      * othwerwise it could influence system boot up latency
      */
     while (1) {
-        property_get("sys.boot_completed", prop_value, "0");
+        property_get("vendor.boot_completed", prop_value, "0");
         boot = atoi(prop_value);
         if (boot)
             break;
