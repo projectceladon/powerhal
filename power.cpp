@@ -126,7 +126,6 @@ static int sysfs_read(const char *path, char *s, int length)
     return 0;
 }
 
-#ifdef APP_LAUNCH_BOOST
 static void app_launch_boost_interactive(void *hint_data)
 {
     if (hint_data != NULL) {
@@ -159,8 +158,6 @@ static void app_launch_boost_intel_pstate(void *hint_data)
         }
     }
 }
-
-#endif
 
 static void power_init(__attribute__((unused))struct power_module *module)
 {
@@ -251,14 +248,11 @@ static void power_hint(struct power_module *module, power_hint_t hint,
         break;
     case POWER_HINT_LOW_POWER:
         break;
-
-#if defined(APP_LAUNCH_BOOST) && defined(APP_LAUNCH_BOOST_SUPPORTED)
-    case POWER_HINT_APP_LAUNCH:
+    case POWER_HINT_LAUNCH:
         if (interactiveActive)
             app_launch_boost_interactive(data);
 	else if (intelPStateActive)
             app_launch_boost_intel_pstate(data);
-#endif
     default:
         break;
     }
