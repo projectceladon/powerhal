@@ -15,6 +15,8 @@
  */
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -38,6 +40,11 @@
 #define TOUCHBOOST_PULSE_SYSFS "/sys/devices/system/cpu/cpufreq/interactive/touchboostpulse"
 static const char cpufreq_boost_interactive[] = "/sys/devices/system/cpu/cpufreq/interactive/boost";
 static const char cpufreq_boost_intel_pstate[] = "/sys/devices/system/cpu/intel_pstate/min_perf_pct";
+
+#ifdef APP_LAUNCH_BOOST
+static char max_freq_sysfs[8], min_freq_sysfs[8], turbo_pct_sysfs[8], num_pstates_sysfs[8];
+static char new_min_perf_pct[5];
+#endif
 
 /*
  * This parameter is to identify continuous touch/scroll events.
@@ -126,6 +133,20 @@ static int sysfs_read(const char *path, char *s, int length)
     return 0;
 }
 
+#ifdef APP_LAUNCH_BOOST
+static void get_pstate_boost_pct(char* old_min_perf_pct)
+{
+    unsigned int scaling_max_freq = atoi(max_freq_sysfs);
+    unsigned int scaling_min_freq = atoi(min_freq_sysfs);
+    unsigned int num_pstates = atoi(num_pstates_sysfs);
+    unsigned int turbo_pct = atoi(turbo_pct_sysfs);
+    int pstate_ival = (scaling_max_freq - scaling_min_freq) / (num_pstates - 1);
+    unsigned int hfm = scaling_max_freq - (pstate_ival * ((turbo_pct * num_pstates)/100));
+    int min_perf_pct = (hfm * atoi(old_min_perf_pct)) / scaling_min_freq;
+
+    sprintf(new_min_perf_pct, "%d", min_perf_pct);
+}
+
 static void app_launch_boost_interactive(void *hint_data)
 {
     if (hint_data != NULL) {
@@ -146,7 +167,7 @@ static void app_launch_boost_intel_pstate(void *hint_data)
         ALOGI("PowerHAL HAL:App Boost ON");
         if (boosted == false) {
             if (!sysfs_read(cpufreq_boost_intel_pstate, old_min_perf_pct, sizeof(old_min_perf_pct))) {
-                sysfs_write(cpufreq_boost_intel_pstate,(char *)"100");
+                sysfs_write(cpufreq_boost_intel_pstate,(char *)new_min_perf_pct);
                 boosted = true;
             }
         }
@@ -158,20 +179,39 @@ static void app_launch_boost_intel_pstate(void *hint_data)
         }
     }
 }
+#endif
 
 static void power_init(__attribute__((unused))struct power_module *module)
 {
     int cnt = 0;
     char buf[1];
 
+#ifdef APP_LAUNCH_BOOST
+    static const char sysfs_min_freq[] = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq";
+    static const char sysfs_max_freq[] = "/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq";
+    static const char sysfs_num_pstates[] = "/sys/devices/system/cpu/intel_pstate/num_pstates";
+    static const char sysfs_turbo_pct[] = "/sys/devices/system/cpu/intel_pstate/turbo_pct";
+    char min_perf_pct[4];
+#endif
+
     /* Enable all devices by default */
     powerMonitor.setState(ENABLE);
     cgroupCpusetController.setState(ENABLE);
 
-    if (!sysfs_read(TOUCHBOOST_PULSE_SYSFS, buf, 1))
+    if (!sysfs_read(TOUCHBOOST_PULSE_SYSFS, buf, 1)) {
         interactiveActive = true;
-    if (!sysfs_read(cpufreq_boost_intel_pstate, buf, 1))
+    } if (!sysfs_read(cpufreq_boost_intel_pstate, buf, 1)) {
 	intelPStateActive = true;
+#ifdef APP_LAUNCH_BOOST
+        sysfs_read(sysfs_max_freq, max_freq_sysfs, sizeof(max_freq_sysfs));
+        sysfs_read(sysfs_min_freq, min_freq_sysfs, sizeof(min_freq_sysfs));
+        sysfs_read(sysfs_turbo_pct, turbo_pct_sysfs, sizeof(turbo_pct_sysfs));
+        sysfs_read(sysfs_num_pstates, num_pstates_sysfs, sizeof(num_pstates_sysfs));
+        if (!sysfs_read(cpufreq_boost_intel_pstate, min_perf_pct, sizeof(min_perf_pct))) {
+	    get_pstate_boost_pct(min_perf_pct);
+        }
+#endif
+    }
 }
 
 static void power_set_interactive(__attribute__((unused))struct power_module *module, int on)
@@ -248,11 +288,14 @@ static void power_hint(struct power_module *module, power_hint_t hint,
         break;
     case POWER_HINT_LOW_POWER:
         break;
+#ifdef APP_LAUNCH_BOOST
     case POWER_HINT_LAUNCH:
         if (interactiveActive)
             app_launch_boost_interactive(data);
 	else if (intelPStateActive)
             app_launch_boost_intel_pstate(data);
+	break;
+#endif
     default:
         break;
     }
