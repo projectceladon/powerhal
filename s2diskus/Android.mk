@@ -199,3 +199,12 @@ LOCAL_CFLAGS += -DCONFIG_COMPRESS=COMPRESS_LZ4 -DCONFIG_ENCRYPT=ENCRYPT_ISAL
 
 include $(BUILD_EXECUTABLE)
 
+#######################################
+# build swapoffset
+#######################################
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := swap-offset.c
+LOCAL_MODULE := swap_offset
+
+include $(BUILD_EXECUTABLE)

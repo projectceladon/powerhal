@@ -1248,10 +1248,10 @@ static int encrypt_and_save_page(struct swap_writer *handle, void *src)
 			unsigned char *src_p = (unsigned char*)src;
 			unsigned char *dst_p = (unsigned char*)handle->encrypt_ptr;
 			mprintf("original  block first 16 bytes: %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x\n",
-				 src_p[0], src_p[1], src_p[2], src_p[3], src_p[4], src_p[5], src_p[6], src_p[7], 
+				 src_p[0], src_p[1], src_p[2], src_p[3], src_p[4], src_p[5], src_p[6], src_p[7],
 				 src_p[8], src_p[9], src_p[10], src_p[11], src_p[12], src_p[13], src_p[14], src_p[15]);
 			mprintf("encrypted block first 16 bytes: %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x\n",
-				 dst_p[0], dst_p[1], dst_p[2], dst_p[3], dst_p[4], dst_p[5], dst_p[6], dst_p[7], 
+				 dst_p[0], dst_p[1], dst_p[2], dst_p[3], dst_p[4], dst_p[5], dst_p[6], dst_p[7],
 				 dst_p[8], dst_p[9], dst_p[10], dst_p[11], dst_p[12], dst_p[13], dst_p[14], dst_p[15]);
 			page_count ++;
 		}
@@ -2204,16 +2204,16 @@ static void generate_key(void)
 	if (read(rnd_fd, key_data.key, KEY_SIZE) != KEY_SIZE) {
 		mprintf("Failed to read urandom for %d bytes\n", KEY_SIZE);
 	}
-	mprintf("Random key %d bytes generated : %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x\n", KEY_SIZE, 
-		key_data.key[0], key_data.key[1], key_data.key[2],  key_data.key[3],  key_data.key[4],  key_data.key[5],  key_data.key[6],  key_data.key[7], 
+	mprintf("Random key %d bytes generated : %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x\n", KEY_SIZE,
+		key_data.key[0], key_data.key[1], key_data.key[2],  key_data.key[3],  key_data.key[4],  key_data.key[5],  key_data.key[6],  key_data.key[7],
 		key_data.key[8], key_data.key[9], key_data.key[10], key_data.key[11], key_data.key[12], key_data.key[13], key_data.key[14], key_data.key[15]);
 	close(rnd_fd);
 
 	/* TODO: is this Okay? iv fixed as zero as key is randomized for every image */
 	memset(key_data.ivec, 0, IV_SIZE);
 	memset(&key_data.gctx, 0, sizeof(struct gcm_context_data));
-	mprintf("IV %d bytes generated : %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x\n", IV_SIZE, 
-		key_data.ivec[0], key_data.ivec[1], key_data.ivec[2],  key_data.ivec[3],  key_data.ivec[4],  key_data.ivec[5],  key_data.ivec[6],  key_data.ivec[7], 
+	mprintf("IV %d bytes generated : %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x %2x\n", IV_SIZE,
+		key_data.ivec[0], key_data.ivec[1], key_data.ivec[2],  key_data.ivec[3],  key_data.ivec[4],  key_data.ivec[5],  key_data.ivec[6],  key_data.ivec[7],
 		key_data.ivec[8], key_data.ivec[9], key_data.ivec[10], key_data.ivec[11]);
 
 	/* No associate data */
@@ -2249,7 +2249,7 @@ static int lock_vt(void)
 
 	error = ioctl(fd, VT_GETSTATE, &vtstat);
 	close(fd);
-	
+
 	if (error < 0)
 		return error;
 
@@ -2259,7 +2259,7 @@ static int lock_vt(void)
 		return vfd;
 
 	error = ioctl(vfd, VT_GETMODE, &vtm);
-	if (error < 0) 
+	if (error < 0)
 		return error;
 
 	/* Setting vt mode to VT_PROCESS means this process
@@ -2299,11 +2299,11 @@ static inline int get_config(int argc, char *argv[])
 		       required_argument,	NULL, 'f'
 		   },
 		   {
-		       "resume_device\0device that contains swap area",	
+		       "resume_device\0device that contains swap area",
 		       required_argument,	NULL, 'r'
 		   },
 		   {
-		       "resume_offset\0offset of swap file in resume device.",	
+		       "resume_offset\0offset of swap file in resume device.",
 		       required_argument,	NULL, 'o'
 		   },
 		   {
@@ -2404,11 +2404,54 @@ static inline int get_config(int argc, char *argv[])
 	 */
 	if (s2ram == EINVAL)
 		return -EINVAL;
-	
+
 	s2ram = !s2ram;
 #endif
 
 	return 0;
+}
+
+static int write_config_data(int fd, loff_t offset, void *buf, int size)
+{
+	int res = 0;
+	ssize_t cnt = 0;
+
+	if (lseek64(fd, offset, SEEK_SET) == offset)
+		cnt = write(fd, buf, size);
+
+	if (cnt != size)
+		res = -EIO;
+
+	return res;
+}
+
+#if 0
+#define SWAP_CONFIG_FILE  "/dev/block/by-name/swap"
+#define CONFIG_OFFSET (900*1024*1024)
+#else
+#define SWAP_CONFIG_FILE  "/vendor/oem_config/swapinfo.txt"
+#define CONFIG_OFFSET 0
+#endif
+
+static int save_config(void *buf, int size)
+{
+	int res;
+	int cfg_fd = open(SWAP_CONFIG_FILE, O_RDWR | O_CREAT, 0644); //O_RDWR
+
+	mprintf("####0## page_size = 0x%X\n", page_size);
+	if (cfg_fd < 0) {
+		mprintf("####1## open '%s' failed\n", SWAP_CONFIG_FILE);
+		return -1;
+	}
+
+	res = write_config_data(cfg_fd, CONFIG_OFFSET, buf, size);
+	if (res < 0) {
+		mprintf("####2## write config data to '%s' failed\n", SWAP_CONFIG_FILE);
+		size = 0;
+	}
+
+	close(cfg_fd);
+	return size;
 }
 
 int main(int argc, char *argv[])
@@ -2534,7 +2577,7 @@ int main(int argc, char *argv[])
 			encrypt_buf_size = ENCRYPT_BUF_PAGES * page_size;
 			mem_size += encrypt_buf_size;
 		}
-#elif (CONFIG_ENCRYPT == ENCRYPT_ISAL)		
+#elif (CONFIG_ENCRYPT == ENCRYPT_ISAL)
 		encrypt_buf_size = ENCRYPT_BUF_PAGES * page_size;
 		mem_size += encrypt_buf_size;
 		/* aes_gcm_init_128 is called in generate_key() after key generated */
@@ -2657,6 +2700,11 @@ int main(int argc, char *argv[])
 		goto Close_resume_fd;
 	}
 
+	fprintf(stderr, "### resume_offset = 0x%lX (%ld)\n", resume_offset, resume_offset);
+	if(save_config(&resume_offset, sizeof(resume_offset)) == sizeof(resume_offset)) {
+		fprintf(stderr, "### resume_offset saved\n");
+	}
+
 	if (set_swap_file(snapshot_fd, resume_dev, resume_offset)) {
 		ret = errno;
 		suspend_error("Could not use the resume device "
@@ -2690,7 +2738,7 @@ int main(int argc, char *argv[])
 #endif
 #ifdef CONFIG_BOTH
 	/* If s2ram_hacks returns != 0, better not try to suspend to RAM */
-	if (s2ram) 
+	if (s2ram)
 		s2ram = !s2ram_hacks();
 #endif
 #if defined(CONFIG_SPLASH) && defined(CONFIG_ENCRYPT)

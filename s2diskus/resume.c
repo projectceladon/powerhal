@@ -197,6 +197,23 @@ static struct config_par parameters[] = {
 	}
 };
 
+#undef mprintf
+#define mprintf(format, args...) \
+    {\
+	unsigned long current = get_timer();\
+        if(terminal_fd < 0) {\
+                terminal_fd = open(TERMINAL, O_WRONLY);\
+        }\
+        if(terminal_fd >=0) {\
+                sprintf(terminal_buf,"[%lu] %s: ", current, my_name);\
+                sprintf(terminal_buf+33, format, ##args);\
+                write(terminal_fd, terminal_buf, strlen(terminal_buf));\
+        } else {\
+                printf("cannot open terminal, terminal_fd %d, errno %s\n", terminal_fd, strerror(errno));\
+        }\
+        fprintf(stderr, "%s", terminal_buf);\
+    }
+
 static inline int atomic_restore(int dev)
 {
 	mprintf("atomic restore\n");
@@ -472,6 +489,46 @@ static inline int get_config(int argc, char *argv[])
 	return 0;
 }
 
+static int read_config_data(int fd, loff_t offset, void *buf, int size)
+{
+	int res = 0;
+	ssize_t cnt = 0;
+    int *resume_off;
+
+	if (lseek(fd, offset, SEEK_SET) == offset)
+		cnt = read(fd, buf, size);
+	if (cnt < (ssize_t)size)
+		res = -EIO;
+
+    resume_off = (int *)buf;
+	return res;
+}
+
+#define SWAP_CONFIG_FILE  "/vendor/oem_config/swapinfo.txt"
+#define CONFIG_OFFSET     0
+
+static int read_config(void *buf, int size)
+{
+	int res;
+	int cfg_fd;
+
+	cfg_fd = open(SWAP_CONFIG_FILE, O_RDONLY);
+	if (cfg_fd < 0) {
+		mprintf("##2# open '%s' failed\n", SWAP_CONFIG_FILE);
+		return -1;
+	}
+
+	res = read_config_data(cfg_fd, CONFIG_OFFSET, buf, size);
+	if (res < 0) {
+		mprintf("##2# read config data from '%s' failed\n", SWAP_CONFIG_FILE);
+		size = 0;
+	}
+
+	close(cfg_fd);
+	remove(SWAP_CONFIG_FILE);
+	return size;
+}
+
 int main(int argc, char *argv[])
 {
 	unsigned int mem_size;
@@ -479,12 +536,15 @@ int main(int argc, char *argv[])
 	int dev, resume_dev;
 	int n, error, orig_loglevel;
 	static struct swsusp_header swsusp_header;
-
 	my_name = basename(argv[0]);
 
-	error = get_config(argc, argv);
-	if (error)
-		return -error;
+	suspend_loglevel = 7;
+	set_kernel_console_loglevel(suspend_loglevel);
+	for(n=0; n<argc; n++)
+	{
+		mprintf("### argv[%d] = %s\n", n, argv[n]);
+	}
+
 #ifdef CONFIG_SPLASH
 	if (splash_param != 'y' && splash_param != 'Y')
 		splash_param = 0;
@@ -551,9 +611,29 @@ int main(int argc, char *argv[])
 
 	int ret;
 
+	ret = read_config(&resume_offset, sizeof(resume_offset));
+	if (ret != sizeof(resume_offset))
+	{
+		resume_offset = 0;
+	}
+
+	mprintf("####4 resume_offset = 0x%lX\n", resume_offset);
+	if(resume_offset != 0)
+	{
+		resume_dev = makedev(259, 3);
+		mprintf("####a3 resume_dev=0x%X\n", resume_dev);
+	}
+	else
+	{
+		resume_dev = makedev(259, 3);
+		mprintf("####a5 resume_dev=0x%X\n", resume_dev);
+	}
+
+	strcpy(resume_dev_name, "/dev/dev_resume");
+
 	/* the partition where image is stored, hard coded */
         if(stat(resume_dev_name, &stat_buf)) {
-            ret = mknod(resume_dev_name, S_IFBLK | 0600, makedev(259, 4));
+            ret = mknod(resume_dev_name, S_IFBLK | 0600, resume_dev);
             if(ret != 0) {
 		mprintf("mknod failure %s errno: %d\n", resume_dev_name, errno);
 		goto Free;
