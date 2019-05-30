@@ -46,7 +46,7 @@ class DevicePowerMonitor {
 
   public:
       DevicePowerMonitor():
-          mScanNeeded(true){};
+          mDevicePaths(),mScanNeeded(true){};
       virtual ~DevicePowerMonitor(){};
       void setState(int state);
 
