@@ -142,9 +142,10 @@ static void get_pstate_boost_pct(char* old_min_perf_pct)
     unsigned int turbo_pct = atoi(turbo_pct_sysfs);
     int pstate_ival = (scaling_max_freq - scaling_min_freq) / (num_pstates - 1);
     unsigned int hfm = scaling_max_freq - (pstate_ival * ((turbo_pct * num_pstates)/100));
-    int min_perf_pct = (hfm * atoi(old_min_perf_pct)) / scaling_min_freq;
-
-    sprintf(new_min_perf_pct, "%d", min_perf_pct);
+    int min_perf_pct;
+    if (scaling_min_freq > 0)
+        min_perf_pct = (hfm * atoi(old_min_perf_pct)) / scaling_min_freq;
+    snprintf(new_min_perf_pct, sizeof(new_min_perf_pct), "%d", min_perf_pct);
 }
 
 static void app_launch_boost_interactive(void *hint_data)
