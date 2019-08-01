@@ -183,7 +183,6 @@ static void app_launch_boost_intel_pstate(void *hint_data)
 
 static void power_init(__attribute__((unused))struct power_module *module)
 {
-    int cnt = 0;
     char buf[1];
 
 #ifdef APP_LAUNCH_BOOST
@@ -306,7 +305,7 @@ static struct hw_module_methods_t power_module_methods = {
 };
 
 struct intel_power_module HAL_MODULE_INFO_SYM = {
-    container:{
+    container = {
         .common = {
             .tag = HARDWARE_MODULE_TAG,
             .module_api_version = POWER_MODULE_API_VERSION_0_2,
@@ -322,7 +321,7 @@ struct intel_power_module HAL_MODULE_INFO_SYM = {
     .setInteractive = power_set_interactive,
     .powerHint = power_hint,
     },
-    touchboost_disable: 0,
-    timer_set: 0,
-    vsync_boost: 0,
+    touchboost_disable = 0,
+    timer_set = 0,
+    vsync_boost = 0,
 };
