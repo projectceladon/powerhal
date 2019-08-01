@@ -29,7 +29,6 @@ void DevicePowerMonitor::scanPaths()
     char deviceNamePath[PATH_MAX];
     DIR *dir;
     struct dirent *de;
-    int cnt = 0;
 
     if(!mScanNeeded)
         return;
