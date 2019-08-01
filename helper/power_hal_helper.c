@@ -47,7 +47,6 @@ static struct process_pid_t s_pids[] = {
 /* Set a property so that init can write the PID to correct files */
 static void notify_pid(pid_t pid)
 {
-    int fd;
     int ret;
     char str[10];
 
