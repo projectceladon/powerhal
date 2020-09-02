@@ -212,9 +212,9 @@ static int update_cpu_max_freq(bool is_limit)
     }
 
     if (is_limit)
-        strcpy(buf, max0);
+        strncpy(buf, max0, sizeof(buf));
     else
-        strcpy(buf, max1);
+        strncpy(buf, max1, sizeof(buf));
 
     ret0 = write(fd0, buf, (sizeof(buf) - 1));
     ret1 = write(fd1, buf, (sizeof(buf) - 1));
