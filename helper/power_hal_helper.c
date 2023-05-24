@@ -69,7 +69,7 @@ void cgroup_walk_proc_for_processes()
     char process_name[PROCESS_NAME_LEN];
     int fd;
     struct process_pid_t *p;
-    int cnt = 0, total_cnt = 0;
+    int cnt = 0, total_cnt = 0, sz = 0;
 
     d = opendir("/proc");
     if (d == 0) {
@@ -98,7 +98,8 @@ void cgroup_walk_proc_for_processes()
             /* match process name */
             fd = open(cmdline, O_RDONLY);
             if (fd >= 0) {
-                if (read(fd, process_name, sizeof(process_name)) > 0) {
+                read(fd, process_name, sizeof(process_name));
+		if (sz > 0) {
                     p = &s_pids[0];
                     while (p->name[0] != '\0') {
                         if ((p->pid == -1) &&
