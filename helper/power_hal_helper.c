@@ -98,7 +98,7 @@ void cgroup_walk_proc_for_processes()
             /* match process name */
             fd = open(cmdline, O_RDONLY);
             if (fd >= 0) {
-                read(fd, process_name, sizeof(process_name));
+                sz = read(fd, process_name, sizeof(process_name));
 		if (sz > 0) {
                     p = &s_pids[0];
                     while (p->name[0] != '\0') {
